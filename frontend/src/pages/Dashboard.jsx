@@ -5,6 +5,17 @@ import WeaknessChart from "../components/WeaknessChart";
 import api from "../services/api";
 import { getDifficultyColor } from "../utils/helpers";
 import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ReferenceLine,
+  ResponsiveContainer,
+  Cell
+} from "recharts";
+import {
   Compass,
   Trophy,
   Activity,
@@ -23,10 +34,64 @@ import {
   Clock
 } from "lucide-react";
 
+// Attach api.get helper dynamically if not present to ensure standard get operations
+if (!api.get) {
+  api.get = (url, config) => {
+    const token = localStorage.getItem("token");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    return axios.get(`http://localhost:5000/api${url}`, {
+      ...config,
+      headers: { ...headers, ...config?.headers }
+    });
+  };
+}
+
+const CustomTooltip = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const mastery = data.masteryScore;
+    const weakness = data.weaknessScore;
+    const solved = data.totalSolved || 0;
+    const total = data.totalProblems || 5;
+
+    let practicedText = "Never";
+    if (data.lastPracticed) {
+      practicedText = data.lastPracticed;
+    }
+
+    return (
+      <div className="bg-slate-955 border border-indigo-500/50 p-4 rounded-lg shadow-xl text-left text-white max-w-[280px]">
+        <p className="font-bold text-xs m-0 mb-2 border-b border-slate-800 pb-1 text-slate-100">
+          {data.subtopic}
+        </p>
+        <div className="flex flex-col gap-1 text-[11px]">
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400 font-medium">Mastery:</span>
+            <span className="font-bold text-slate-100">{mastery}%</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400 font-medium">Weakness:</span>
+            <span className="font-bold text-indigo-400">{weakness}%</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400 font-medium">Last Practiced:</span>
+            <span className="text-slate-200">{practicedText}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-400 font-medium">Problems Solved:</span>
+            <span className="text-slate-200">{solved} / {total}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 const Dashboard = () => {
   const { user, progress, performances, refetchUser, connectHandles } = useAuth();
   const [dailyData, setDailyData] = useState({ problems: [], revisionAlerts: [] });
-  const [weaknessDiagnostics, setWeaknessDiagnostics] = useState([]);
+  const [weaknessData, setWeaknessData] = useState(null);
   const [loadingDaily, setLoadingDaily] = useState(true);
   const [loadingWeakness, setLoadingWeakness] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -46,22 +111,25 @@ const Dashboard = () => {
     }
   };
 
-  const fetchWeaknessDiagnostics = async () => {
-    if (!user) return;
-    setLoadingWeakness(true);
+  const fetchWeaknessData = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/dashboard/weakness/${user._id}`);
-      setWeaknessDiagnostics(res.data || []);
-    } catch (err) {
-      console.error("Failed to load weakness diagnostics:", err);
+      setLoadingWeakness(true);
+      const response = await api.get('/dashboard/weakness');
+      setWeaknessData(response.data.data);
+    } catch (error) {
+      console.error('Failed to fetch weakness data:', error);
     } finally {
       setLoadingWeakness(false);
     }
   };
 
   const fetchAllData = async () => {
-    await Promise.all([fetchDailySheet(), fetchWeaknessDiagnostics()]);
+    await Promise.all([fetchDailySheet(), fetchWeaknessData()]);
   };
+
+  useEffect(() => {
+    fetchWeaknessData();
+  }, []);
 
   useEffect(() => {
     fetchAllData();
@@ -297,60 +365,95 @@ const Dashboard = () => {
             </div>
             
             {loadingWeakness ? (
-              <div className="py-12 flex justify-center">
-                <RefreshCw className="w-6 h-6 text-indigo-650 animate-spin" />
+              <div className="py-12 flex justify-center text-xs text-slate-450 dark:text-slate-500 items-center">
+                <RefreshCw className="w-6 h-6 text-indigo-650 animate-spin mr-2" />
+                Loading weakness data...
               </div>
-            ) : weaknessDiagnostics.length > 0 ? (
-              <div className="flex flex-col gap-4">
-                {weaknessDiagnostics.slice(0, 5).map((item) => {
-                  const practicedText = item.lastPracticed
-                    ? `Last practiced: ${Math.ceil((Date.now() - new Date(item.lastPracticed).getTime()) / (1000 * 60 * 60 * 24))} days ago`
-                    : "Never practiced";
-
-                  return (
-                    <div key={item.subtopic} className="flex flex-col gap-1.5 border-b border-slate-100 dark:border-slate-850 pb-3 last:border-b-0 last:pb-0">
-                      <div className="flex items-center justify-between text-xs gap-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-slate-800 dark:text-slate-100">{item.subtopic}</span>
-                          <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold border border-slate-200/50 dark:border-slate-750">
-                            {item.topic}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-slate-400 dark:text-slate-500 text-2xs">{item.masteryScore}% Mastery</span>
-                          <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-2xs">{item.weaknessScore}% Weakness</span>
-                        </div>
-                      </div>
-
-                      {/* Progress bar */}
-                      <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-300 ${getWeaknessBarColor(item.weaknessScore)}`}
-                          style={{ width: `${item.weaknessScore}%` }}
-                        />
-                      </div>
-
-                      {/* Detail row */}
-                      <div className="flex items-center justify-between text-[10px] text-slate-450 dark:text-slate-500">
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="w-3 h-3" />
-                          {practicedText}
-                        </span>
-
-                        {item.revisionNeeded && (
-                          <span className="text-[9px] font-bold px-2 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-500 border border-amber-500/20">
-                            Revision Due
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
+            ) : (!weaknessData || !weaknessData.subtopics || weaknessData.subtopics.length === 0) ? (
               <p className="text-xs text-slate-450 dark:text-slate-500 py-4 text-center">
-                Strong performance across all studied topics! Keep solving to unlock new areas.
+                No subtopics analyzed yet. Start solving problems to see your weakness profile.
               </p>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {weaknessData.summary && (
+                  <p className="text-[11px] text-slate-450 dark:text-slate-500 font-semibold my-0 text-left">
+                    {weaknessData.summary.total} subtopics analyzed · {weaknessData.summary.weak} weak · {weaknessData.summary.improving} improving · {weaknessData.summary.strong} strong
+                  </p>
+                )}
+
+                {/* Horizontal Bar Chart Container */}
+                <div className="w-full max-h-[420px] overflow-y-auto pr-1">
+                  <div style={{ height: `${Math.max(300, (weaknessData.subtopics?.length || 0) * 40)}px`, minWidth: "400px" }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={weaknessData.subtopics || []}
+                        layout="vertical"
+                        margin={{ top: 15, right: 40, left: 10, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" className="dark:stroke-slate-800" />
+                        <XAxis
+                          type="number"
+                          domain={[0, 100]}
+                          tick={{ fill: "#94A3B8", fontSize: 10 }}
+                          stroke="#E2E8F0"
+                          className="dark:stroke-slate-800"
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="subtopic"
+                          tick={{ fill: "#94A3B8", fontSize: 9 }}
+                          width={150}
+                          stroke="#E2E8F0"
+                          className="dark:stroke-slate-800"
+                        />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(99, 102, 241, 0.05)" }} />
+                        <ReferenceLine
+                          x={40}
+                          stroke="#6366F1"
+                          strokeDasharray="3 3"
+                          label={{
+                            value: "Threshold",
+                            position: "top",
+                            fill: "#6366F1",
+                            fontSize: 9,
+                            fontWeight: "semibold"
+                          }}
+                        />
+                        <Bar
+                          dataKey="masteryScore"
+                          radius={[0, 4, 4, 0]}
+                          label={{
+                            position: "right",
+                            fill: "#64748B",
+                            fontSize: 10,
+                            fontWeight: "bold",
+                            formatter: (val) => `${val}%`
+                          }}
+                        >
+                          {(weaknessData.subtopics || []).map((entry, index) => {
+                            let barColor = "#10B981"; // Strong
+                            if (entry.masteryScore < 40) {
+                              barColor = "#EF4444"; // Weak
+                            } else if (entry.masteryScore < 70) {
+                              barColor = "#F59E0B"; // Improving
+                            }
+                            return <Cell key={`cell-${index}`} fill={barColor} />;
+                          })}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Legend */}
+                <div className="flex justify-center items-center gap-4 mt-2 text-[11px] text-slate-555 dark:text-slate-400 font-semibold border-t border-slate-100 dark:border-slate-850 pt-3">
+                  <span>🔴 Weak (&lt;40%)</span>
+                  <span className="text-slate-300 dark:text-slate-700">&middot;</span>
+                  <span>🟡 Improving (40-69%)</span>
+                  <span className="text-slate-300 dark:text-slate-700">&middot;</span>
+                  <span>🟢 Strong (&ge;70%)</span>
+                </div>
+              </div>
             )}
           </div>
 

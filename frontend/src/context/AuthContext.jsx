@@ -102,11 +102,7 @@ export const AuthProvider = ({ children }) => {
   const connectHandles = async (handlesObj) => {
     try {
       const response = await axios.post("http://localhost:5000/api/user/connect-platform", handlesObj);
-      setUser({
-        user: response.data.user,
-        progress: response.data.progress,
-        performances: response.data.performances
-      });
+      setUser(response.data);
       return response.data;
     } catch (error) {
       throw error.response?.data?.message || "Connecting handles failed";
@@ -128,6 +124,9 @@ export const AuthProvider = ({ children }) => {
         user: user?.user || null,
         progress: user?.progress || null,
         performances: user?.performances || [],
+        streakData: user?.streakData || null,
+        todaySolved: user?.todaySolved !== undefined ? user.todaySolved : 0,
+        totalScore: user?.totalScore !== undefined ? user.totalScore : 0,
         loading,
         register,
         login,

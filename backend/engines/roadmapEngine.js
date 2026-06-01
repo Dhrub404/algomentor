@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const TopicPerformance = require("../models/TopicPerformance");
 const ProblemMapping = require("../models/ProblemMapping");
 const Topic = require("../models/Topic");
@@ -29,7 +30,8 @@ const getGenericRoadmap = async (user, userProgress) => {
   }
 
   // Fetch all TopicPerformance records for this user
-  const performances = await TopicPerformance.find({ userId: user._id });
+  const targetUserId = mongoose.Types.ObjectId.isValid(user._id) ? new mongoose.Types.ObjectId(user._id) : user._id;
+  const performances = await TopicPerformance.find({ userId: targetUserId });
   const perfMap = {};
   for (const p of performances) {
     perfMap[p.subtopic] = p;
@@ -96,7 +98,7 @@ const getPersonalizedRoadmap = async (user, userProgress) => {
     }
   }
 
-  const performances = await TopicPerformance.find({ userId: user._id });
+  const performances = await TopicPerformance.find({ userId: new mongoose.Types.ObjectId(user._id) });
   const noPerformanceData = performances.length === 0;
 
   // Check if user has connected any platform
@@ -118,10 +120,15 @@ const getPersonalizedRoadmap = async (user, userProgress) => {
   const studied = user.studiedTopics || [];
   const unlocked = userProgress.unlockedSubtopics || [];
 
-  // Filter out subtopics that are locked or are not in the user's studiedTopics
-  const eligibleSubtopics = unlocked.filter((sub) =>
-    studied.includes(subtopicToTopic[sub])
+  // Filter out subtopics that are locked or are not in the user's studiedTopics (treat empty studiedTopics as studied all)
+  let eligibleSubtopics = unlocked.filter((sub) =>
+    studied.length === 0 || studied.includes(subtopicToTopic[sub])
   );
+
+  // If eligibleSubtopics is empty but unlocked is not empty, bypass studiedTopics filter
+  if (eligibleSubtopics.length === 0 && unlocked.length > 0) {
+    eligibleSubtopics = unlocked;
+  }
 
   // Check if all eligible subtopics have a mastery > 80%
   const allMastered =
@@ -374,6 +381,31 @@ const getPersonalizedRoadmap = async (user, userProgress) => {
     });
   }
 
+  // Fallback: If eligibleSubtopics is not empty but list is empty, populate list with all eligible subtopics
+  if (list.length === 0 && eligibleSubtopics.length > 0) {
+    for (const sub of eligibleSubtopics) {
+      const topicName = subtopicToTopic[sub] || "DSA";
+      const allSubtopicProblems = await ProblemMapping.find({ subtopic: sub });
+      const recommendedProblems = allSubtopicProblems.slice(0, 5).map((p) => ({
+        _id: p._id,
+        title: p.title,
+        difficulty: p.difficulty,
+        platform: p.platform,
+        url: p.url
+      }));
+
+      list.push({
+        subtopic: sub,
+        topic: topicName,
+        masteryScore: 0,
+        weaknessScore: 70,
+        priorityScore: 50,
+        reason: `Important foundation topic for ${topicName}`,
+        recommendedProblems
+      });
+    }
+  }
+
   // Sort by priority score descending
   list.sort((a, b) => b.priorityScore - a.priorityScore);
 
@@ -389,16 +421,16 @@ const getPersonalizedRoadmap = async (user, userProgress) => {
       let subtitle = "Based on your weakest unlocked topics";
       if (weekIndex === 2) {
         title = `Week ${weekIndex} — Next Focus Areas`;
-        subtitle = "After completing Week 1";
+        subtitle = "After completing Week 1 focus areas";
       } else if (weekIndex > 2) {
         title = `Week ${weekIndex} — Continued Progress`;
-        subtitle = "Keep building your skills";
+        subtitle = "Revision and consolidation";
       }
 
       weeks.push({
         weekNumber: weekIndex,
         title,
-        subtitle,
+        subtitle: subtitle || "Based on your weakest unlocked topics",
         items: currentWeek
       });
       currentWeek = [];

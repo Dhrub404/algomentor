@@ -17,6 +17,73 @@ const normalizeData = require("../utils/normalizeData");
 
 const { calculatePerformanceScores } = require("../engines/weaknessEngine");
 const { evaluateUnlocks } = require("../engines/unlockEngine");
+const { calculateStreaks, calculateTodaySolved } = require("../utils/streakUtilities");
+const { calculateLeaderboardScore } = require("../utils/scoreCalculator");
+
+// Helper to construct profile JSON response dynamically
+const buildProfileResponse = async (user, userProgress, performances) => {
+  const streakData = calculateStreaks(userProgress.submissions);
+  const todaySolved = calculateTodaySolved(userProgress.submissions);
+
+  const solvedByPlatform = {
+    leetcode: 0,
+    codeforces: 0,
+    codechef: 0,
+    geeksforgeeks: 0,
+    hackerrank: 0,
+    codingninjas: 0,
+    hackerearth: 0
+  };
+  performances.forEach((perf) => {
+    const platform = perf.platform;
+    const solved = perf.totalSolved || 0;
+    if (solvedByPlatform[platform] !== undefined) {
+      solvedByPlatform[platform] += solved;
+    } else if (platform === "combined") {
+      solvedByPlatform.leetcode += Math.round(solved * 0.5);
+      solvedByPlatform.codeforces += Math.round(solved * 0.5);
+    }
+  });
+
+  const totalScore = calculateLeaderboardScore(user, userProgress, {
+    solvedCount: userProgress.solvedProblems?.length || 0,
+    streak: streakData.currentStreak,
+    solvedByPlatform
+  });
+
+  // Temporarily log for debugging (SECTION 14 requirements)
+  console.log("Fetched platform data:", userProgress.platformStats);
+  console.log("Calculated streak:", streakData);
+  console.log("Heatmap submissions count:", userProgress.submissions ? userProgress.submissions.length : 0);
+
+  return {
+    user: {
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      codeforcesHandle: user.codeforcesHandle,
+      leetcodeHandle: user.leetcodeHandle,
+      codechefHandle: user.codechefHandle || "",
+      gfgHandle: user.gfgHandle || "",
+      hackerrankHandle: user.hackerrankHandle || "",
+      codingNinjasHandle: user.codingNinjasHandle || "",
+      hackerEarthHandle: user.hackerEarthHandle || "",
+      name: user.name || "",
+      branch: user.branch || "",
+      batch: user.batch || "",
+      college: user.college || "",
+      usn: user.usn || "",
+      currentLevel: user.currentLevel,
+      studiedTopics: user.studiedTopics,
+      createdAt: user.createdAt
+    },
+    progress: userProgress,
+    performances: performances || [],
+    streakData,
+    todaySolved,
+    totalScore
+  };
+};
 
 // Helper to perform full platform sync for a user
 const syncPlatformData = async (user) => {
@@ -47,212 +114,220 @@ const syncPlatformData = async (user) => {
     // 2. Normalize data
     const cfData = cfRaw ? normalizeData("codeforces", cfRaw) : null;
     const lcData = lcRaw ? normalizeData("leetcode", lcRaw) : null;
-    const ccData = ccRaw;
-    const gfgData = gfgRaw;
-    const hrData = hrRaw;
-    const cnData = cnRaw;
-    const heData = heRaw;
+    const ccData = ccRaw ? normalizeData("codechef", ccRaw) : null;
+    const gfgData = gfgRaw ? normalizeData("geeksforgeeks", gfgRaw) : null;
+    const hrData = hrRaw ? normalizeData("hackerrank", hrRaw) : null;
+    const cnData = cnRaw ? normalizeData("codingninjas", cnRaw) : null;
+    const heData = heRaw ? normalizeData("hackerearth", heRaw) : null;
 
     // 3. Aggregate all normalized submissions
     let allSubmissions = [];
-    let solvedIds = [];
+    if (cfData && cfData.submissions) allSubmissions = allSubmissions.concat(cfData.submissions);
+    if (lcData && lcData.submissions) allSubmissions = allSubmissions.concat(lcData.submissions);
+    if (ccData && ccData.submissions) allSubmissions = allSubmissions.concat(ccData.submissions);
+    if (gfgData && gfgData.submissions) allSubmissions = allSubmissions.concat(gfgData.submissions);
+    if (hrData && hrData.submissions) allSubmissions = allSubmissions.concat(hrData.submissions);
+    if (cnData && cnData.submissions) allSubmissions = allSubmissions.concat(cnData.submissions);
+    if (heData && heData.submissions) allSubmissions = allSubmissions.concat(heData.submissions);
 
-    if (cfData) {
-      allSubmissions = allSubmissions.concat(cfData.submissions);
-      solvedIds = solvedIds.concat(cfData.solvedProblemIds);
-    }
-    if (lcData) {
-      allSubmissions = allSubmissions.concat(lcData.submissions);
-      solvedIds = solvedIds.concat(lcData.solvedProblemIds);
-    }
-    if (ccData && ccData.submissions) {
-      allSubmissions = allSubmissions.concat(ccData.submissions);
-      solvedIds = solvedIds.concat(ccData.submissions.filter((s) => s.result === "AC").map((s) => s.problemId));
-    }
-    if (gfgData && gfgData.submissions) {
-      allSubmissions = allSubmissions.concat(gfgData.submissions);
-      solvedIds = solvedIds.concat(gfgData.submissions.filter((s) => s.result === "AC").map((s) => s.problemId));
-    }
-    if (hrData && hrData.submissions) {
-      allSubmissions = allSubmissions.concat(hrData.submissions);
-      solvedIds = solvedIds.concat(hrData.submissions.filter((s) => s.result === "AC").map((s) => s.problemId));
-    }
-    if (cnData && cnData.submissions) {
-      allSubmissions = allSubmissions.concat(cnData.submissions);
-      solvedIds = solvedIds.concat(cnData.submissions.filter((s) => s.result === "AC").map((s) => s.problemId));
-    }
-    if (heData && heData.submissions) {
-      allSubmissions = allSubmissions.concat(heData.submissions);
-      solvedIds = solvedIds.concat(heData.submissions.filter((s) => s.result === "AC").map((s) => s.problemId));
-    }
-
-    if (allSubmissions.length === 0) {
-      return { message: "No recent submissions found on platforms" };
-    }
-
-    // Sort submissions by time ascending to process sequentially
-    allSubmissions.sort((a, b) => a.timestamp - b.timestamp);
-
-    // Find all problem mapping entries in our database that are in the user's submission history
-    const problemIdsInHistory = allSubmissions.map((sub) => sub.problemId);
-    const mappings = await ProblemMapping.find({
-      platformProblemId: { $in: problemIdsInHistory }
-    });
-
-    const mappingMap = {}; // mapping by platformProblemId
-    mappings.forEach((m) => {
-      mappingMap[m.platformProblemId] = m;
-    });
-
-    // 4. Compute statistics grouped by subtopic
-    const subtopicStats = {};
-
-    allSubmissions.forEach((sub) => {
-      const match = mappingMap[sub.problemId];
-      if (!match) return; // problem not mapped in our DSA taxonomy
-
-      const subName = match.subtopic;
-      if (!subtopicStats[subName]) {
-        subtopicStats[subName] = {
-          topic: match.topic,
-          problems: {}
-        };
-      }
-
-      if (!subtopicStats[subName].problems[sub.problemId]) {
-        subtopicStats[subName].problems[sub.problemId] = {
-          solved: false,
-          wrongAttempts: 0,
-          attempts: 0,
-          lastTime: sub.timestamp
-        };
-      }
-
-      const pStat = subtopicStats[subName].problems[sub.problemId];
-      pStat.attempts += 1;
-      pStat.lastTime = sub.timestamp > pStat.lastTime ? sub.timestamp : pStat.lastTime;
-
-      if (sub.result === "AC") {
-        pStat.solved = true;
-      } else {
-        pStat.wrongAttempts += 1;
-      }
-    });
-
-    // 5. Update or Create UserProgress
+    // 4. Update or Create UserProgress
     let userProgress = await UserProgress.findOne({ userId: user._id });
     if (!userProgress) {
       userProgress = new UserProgress({ userId: user._id });
     }
 
-    // Merge newly solved problem object IDs into userProgress.solvedProblems
-    const solvedProblemObjectIds = [];
-    mappings.forEach((m) => {
-      const subName = m.subtopic;
-      const isAc = subtopicStats[subName]?.problems[m.platformProblemId]?.solved;
-      if (isAc && !userProgress.solvedProblems.includes(m._id)) {
-        solvedProblemObjectIds.push(m._id);
-      }
-    });
+    // Save platformStats map
+    userProgress.platformStats = new Map();
+    if (cfHandle && cfData) userProgress.platformStats.set("codeforces", cfData);
+    if (lcHandle && lcData) userProgress.platformStats.set("leetcode", lcData);
+    if (ccHandle && ccData) userProgress.platformStats.set("codechef", ccData);
+    if (gfgHandle && gfgData) userProgress.platformStats.set("geeksforgeeks", gfgData);
+    if (hrHandle && hrData) userProgress.platformStats.set("hackerrank", hrData);
+    if (cnHandle && cnData) userProgress.platformStats.set("codingninjas", cnData);
+    if (heHandle && heData) userProgress.platformStats.set("hackerearth", heData);
 
-    if (solvedProblemObjectIds.length > 0) {
-      // Avoid duplicate additions
-      const existingSet = new Set(userProgress.solvedProblems.map((id) => id.toString()));
-      solvedProblemObjectIds.forEach((id) => {
-        if (!existingSet.has(id.toString())) {
-          userProgress.solvedProblems.push(id);
+    // Merge submissions
+    const existingSubmissions = userProgress.submissions || [];
+    const subMap = new Map();
+    const makeKey = (sub) => {
+      const time = new Date(sub.timestamp).getTime();
+      return `${sub.platform}_${sub.problemId}_${sub.result}_${time}`;
+    };
+    existingSubmissions.forEach(sub => {
+      subMap.set(makeKey(sub), sub);
+    });
+    allSubmissions.forEach(sub => {
+      subMap.set(makeKey(sub), sub);
+    });
+    userProgress.submissions = Array.from(subMap.values());
+    userProgress.lastSynced = new Date();
+    userProgress.lastActivityDate = new Date();
+
+    let solvedCountLength = 0;
+    let unlockedCountLength = userProgress.unlockedSubtopics ? userProgress.unlockedSubtopics.length : 0;
+
+    if (userProgress.submissions.length > 0) {
+      // Sort submissions by time ascending to process sequentially
+      userProgress.submissions.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      // Find all problem mapping entries in our database that are in the user's submission history
+      const problemIdsInHistory = userProgress.submissions.map((sub) => sub.problemId);
+      const mappings = await ProblemMapping.find({
+        platformProblemId: { $in: problemIdsInHistory }
+      });
+
+      const mappingMap = {}; // mapping by platformProblemId
+      mappings.forEach((m) => {
+        mappingMap[m.platformProblemId] = m;
+      });
+
+      // Compute statistics grouped by subtopic
+      const subtopicStats = {};
+
+      userProgress.submissions.forEach((sub) => {
+        const match = mappingMap[sub.problemId];
+        if (!match) return; // problem not mapped in our DSA taxonomy
+
+        const subName = match.subtopic;
+        if (!subtopicStats[subName]) {
+          subtopicStats[subName] = {
+            topic: match.topic,
+            problems: {}
+          };
+        }
+
+        if (!subtopicStats[subName].problems[sub.problemId]) {
+          subtopicStats[subName].problems[sub.problemId] = {
+            solved: false,
+            wrongAttempts: 0,
+            attempts: 0,
+            lastTime: sub.timestamp
+          };
+        }
+
+        const pStat = subtopicStats[subName].problems[sub.problemId];
+        pStat.attempts += 1;
+        pStat.lastTime = sub.timestamp > pStat.lastTime ? sub.timestamp : pStat.lastTime;
+
+        if (sub.result === "AC") {
+          pStat.solved = true;
+        } else {
+          pStat.wrongAttempts += 1;
         }
       });
-    }
 
-    // 6. Update TopicPerformance database records
-    const topicsList = await Topic.find({});
-    
-    // Create a flat dictionary of subtopic difficulties for score weightings
-    const subtopicDifficultyMap = {};
-    topicsList.forEach((t) => {
-      t.subtopics.forEach((s) => {
-        subtopicDifficultyMap[s.name] = s.difficulty;
-      });
-    });
-
-    for (const subtopicName of Object.keys(subtopicStats)) {
-      const stats = subtopicStats[subtopicName];
-      const problemsArray = Object.values(stats.problems);
-
-      const totalAttempted = problemsArray.length;
-      const totalSolved = problemsArray.filter((p) => p.solved).length;
-      const wrongAttempts = problemsArray.reduce((acc, curr) => acc + curr.wrongAttempts, 0);
-      const lastPracticed = new Date(Math.max(...problemsArray.map((p) => new Date(p.lastTime).getTime())));
-
-      // Find or create performance entry
-      let performance = await TopicPerformance.findOne({
-        userId: user._id,
-        subtopic: subtopicName
+      // Merge newly solved problem object IDs into userProgress.solvedProblems
+      const solvedProblemObjectIds = [];
+      mappings.forEach((m) => {
+        const subName = m.subtopic;
+        const isAc = subtopicStats[subName]?.problems[m.platformProblemId]?.solved;
+        if (isAc && !userProgress.solvedProblems.includes(m._id)) {
+          solvedProblemObjectIds.push(m._id);
+        }
       });
 
-      if (!performance) {
-        performance = new TopicPerformance({
-          userId: user._id,
-          subtopic: subtopicName,
-          topic: stats.topic
+      if (solvedProblemObjectIds.length > 0) {
+        // Avoid duplicate additions
+        const existingSet = new Set(userProgress.solvedProblems.map((id) => id.toString()));
+        solvedProblemObjectIds.forEach((id) => {
+          if (!existingSet.has(id.toString())) {
+            userProgress.solvedProblems.push(id);
+          }
         });
       }
+      solvedCountLength = solvedProblemObjectIds.length;
 
-      performance.totalAttempted = totalAttempted;
-      performance.totalSolved = totalSolved;
-      performance.wrongAttempts = wrongAttempts;
-      performance.lastPracticed = lastPracticed;
-
-      // Determine platform
-      const subProblems = Object.keys(stats.problems);
-      const platformsUsed = new Set();
-      subProblems.forEach((pid) => {
-        const platform = mappingMap[pid]?.platform;
-        if (platform) platformsUsed.add(platform);
+      // Update TopicPerformance database records
+      const topicsList = await Topic.find({});
+      
+      // Create a flat dictionary of subtopic difficulties for score weightings
+      const subtopicDifficultyMap = {};
+      topicsList.forEach((t) => {
+        t.subtopics.forEach((s) => {
+          subtopicDifficultyMap[s.name] = s.difficulty;
+        });
       });
-      performance.platform = platformsUsed.size > 1 ? "combined" : (platformsUsed.values().next().value || "combined");
 
-      // Calculate weakness and mastery scores
-      const difficulty = subtopicDifficultyMap[subtopicName] || "easy";
-      const scores = calculatePerformanceScores(performance, difficulty);
+      for (const subtopicName of Object.keys(subtopicStats)) {
+        const stats = subtopicStats[subtopicName];
+        const problemsArray = Object.values(stats.problems);
 
-      performance.accuracy = scores.accuracy;
-      performance.consistencyScore = scores.consistencyScore;
-      performance.difficultyWeight = scores.difficultyWeight;
-      performance.masteryScore = scores.masteryScore;
-      performance.weaknessScore = scores.weaknessScore;
+        const totalAttempted = problemsArray.length;
+        const totalSolved = problemsArray.filter((p) => p.solved).length;
+        const wrongAttempts = problemsArray.reduce((acc, curr) => acc + curr.wrongAttempts, 0);
+        const lastPracticed = new Date(Math.max(...problemsArray.map((p) => new Date(p.lastTime).getTime())));
 
-      await performance.save();
+        // Find or create performance entry
+        let performance = await TopicPerformance.findOne({
+          userId: user._id,
+          subtopic: subtopicName
+        });
 
-      // Update mastery inside progress Map
-      userProgress.mastery.set(subtopicName, scores.masteryScore);
+        if (!performance) {
+          performance = new TopicPerformance({
+            userId: user._id,
+            subtopic: subtopicName,
+            topic: stats.topic
+          });
+        }
+
+        performance.totalAttempted = totalAttempted;
+        performance.totalSolved = totalSolved;
+        performance.wrongAttempts = wrongAttempts;
+        performance.lastPracticed = lastPracticed;
+
+        // Determine platform
+        const subProblems = Object.keys(stats.problems);
+        const platformsUsed = new Set();
+        subProblems.forEach((pid) => {
+          const platform = mappingMap[pid]?.platform;
+          if (platform) platformsUsed.add(platform);
+        });
+        performance.platform = platformsUsed.size > 1 ? "combined" : (platformsUsed.values().next().value || "combined");
+
+        // Calculate weakness and mastery scores
+        const difficulty = subtopicDifficultyMap[subtopicName] || "easy";
+        const scores = calculatePerformanceScores(performance, difficulty);
+
+        performance.accuracy = scores.accuracy;
+        performance.consistencyScore = scores.consistencyScore;
+        performance.difficultyWeight = scores.difficultyWeight;
+        performance.masteryScore = scores.masteryScore;
+        performance.weaknessScore = scores.weaknessScore;
+
+        await performance.save();
+
+        // Update mastery inside progress Map
+        userProgress.mastery.set(subtopicName, scores.masteryScore);
+      }
+
+      // Re-calculate unlocks
+      const allPerformances = await TopicPerformance.find({ userId: user._id });
+      const newlyUnlockedSubtopics = await evaluateUnlocks(
+        allPerformances,
+        topicsList,
+        userProgress.overrideUnlockThreshold,
+        userProgress.forcedUnlockedSubtopics,
+        userProgress.forcedLockedSubtopics
+      );
+      userProgress.unlockedSubtopics = newlyUnlockedSubtopics;
+      unlockedCountLength = newlyUnlockedSubtopics.length;
     }
 
-    // 7. Re-calculate unlocks
-    const allPerformances = await TopicPerformance.find({ userId: user._id });
-    const newlyUnlockedSubtopics = await evaluateUnlocks(
-      allPerformances,
-      topicsList,
-      userProgress.overrideUnlockThreshold,
-      userProgress.forcedUnlockedSubtopics,
-      userProgress.forcedLockedSubtopics
-    );
-    userProgress.unlockedSubtopics = newlyUnlockedSubtopics;
-
-    userProgress.lastActivityDate = new Date();
     await userProgress.save();
 
     return {
       message: "Sync complete!",
-      solvedCount: solvedProblemObjectIds.length,
-      unlockedCount: newlyUnlockedSubtopics.length
+      solvedCount: solvedCountLength,
+      unlockedCount: unlockedCountLength
     };
   } catch (err) {
     console.error("Platform Sync Fatal Error:", err);
     throw err;
   }
 };
+
+
 
 // @desc    Get user profile
 // @route   GET /api/user/profile
@@ -264,15 +339,20 @@ const getUserProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // Auto-sync platform data on profile load to fetch fresh values
+    try {
+      await syncPlatformData(user);
+    } catch (syncErr) {
+      console.warn("Auto-sync failed on profile load, continuing with current stats:", syncErr.message);
+    }
+
     const progress = await UserProgress.findOne({ userId: user._id });
     const performances = await TopicPerformance.find({ userId: user._id });
 
-    // Dynamic self-healing logic: Evaluate unlocks on page load to keep unlocked lists healthy
     let userProgress = progress;
     const topicsList = await Topic.find({});
     
     if (!userProgress) {
-      // Find all default topics to compute initial unlocks (subtopics with no prerequisites)
       const initialUnlocked = [];
       topicsList.forEach((t) => {
         t.subtopics.forEach((s) => {
@@ -301,30 +381,8 @@ const getUserProfile = async (req, res) => {
       await userProgress.save();
     }
 
-    res.json({
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        codeforcesHandle: user.codeforcesHandle,
-        leetcodeHandle: user.leetcodeHandle,
-        codechefHandle: user.codechefHandle || "",
-        gfgHandle: user.gfgHandle || "",
-        hackerrankHandle: user.hackerrankHandle || "",
-        codingNinjasHandle: user.codingNinjasHandle || "",
-        hackerEarthHandle: user.hackerEarthHandle || "",
-        name: user.name || "",
-        branch: user.branch || "",
-        batch: user.batch || "",
-        college: user.college || "",
-        usn: user.usn || "",
-        currentLevel: user.currentLevel,
-        studiedTopics: user.studiedTopics,
-        createdAt: user.createdAt
-      },
-      progress: userProgress,
-      performances: performances || []
-    });
+    const responsePayload = await buildProfileResponse(user, userProgress, performances);
+    res.json(responsePayload);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
@@ -401,29 +459,8 @@ const updateUserProfile = async (req, res) => {
     const updatedProgress = await UserProgress.findOne({ userId: user._id });
     const updatedPerformances = await TopicPerformance.find({ userId: user._id });
 
-    res.json({
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        codeforcesHandle: user.codeforcesHandle,
-        leetcodeHandle: user.leetcodeHandle,
-        codechefHandle: user.codechefHandle || "",
-        gfgHandle: user.gfgHandle || "",
-        hackerrankHandle: user.hackerrankHandle || "",
-        codingNinjasHandle: user.codingNinjasHandle || "",
-        hackerEarthHandle: user.hackerEarthHandle || "",
-        name: user.name || "",
-        branch: user.branch || "",
-        batch: user.batch || "",
-        college: user.college || "",
-        usn: user.usn || "",
-        currentLevel: user.currentLevel,
-        studiedTopics: user.studiedTopics
-      },
-      progress: updatedProgress,
-      performances: updatedPerformances
-    });
+    const responsePayload = await buildProfileResponse(user, updatedProgress, updatedPerformances);
+    res.json(responsePayload);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
@@ -469,25 +506,11 @@ const connectPlatform = async (req, res) => {
     const progress = await UserProgress.findOne({ userId: user._id });
     const performances = await TopicPerformance.find({ userId: user._id });
 
-    res.json({
-      message: "Handles connected and data synchronized successfully",
-      syncResult,
-      user: {
-        _id: user._id,
-        username: user.username,
-        codeforcesHandle: user.codeforcesHandle,
-        leetcodeHandle: user.leetcodeHandle,
-        codechefHandle: user.codechefHandle || "",
-        gfgHandle: user.gfgHandle || "",
-        hackerrankHandle: user.hackerrankHandle || "",
-        codingNinjasHandle: user.codingNinjasHandle || "",
-        hackerEarthHandle: user.hackerEarthHandle || "",
-        currentLevel: user.currentLevel,
-        studiedTopics: user.studiedTopics
-      },
-      progress,
-      performances
-    });
+    const responsePayload = await buildProfileResponse(user, progress, performances);
+    responsePayload.syncResult = syncResult;
+    responsePayload.message = "Handles connected and data synchronized successfully";
+
+    res.json(responsePayload);
   } catch (error) {
     console.error("Connect platform error:", error.message);
     res.status(500).json({ message: `Sync failed: ${error.message}` });

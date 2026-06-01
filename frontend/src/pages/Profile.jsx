@@ -2,29 +2,58 @@ import React, { useState, useEffect, useContext } from "react";
 import useAuth from "../hooks/useAuth";
 import { ThemeContext } from "../context/ThemeContext";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
-} from "recharts";
-import {
   User, Award, Calendar, Mail, Flame, ExternalLink, ShieldCheck, AlertCircle, Edit3, X, Save, Zap
 } from "lucide-react";
 
-const getHashCode = (str) => {
-  if (!str) return 0;
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-};
-
 const Profile = () => {
   const { theme } = useContext(ThemeContext);
-  const { user, progress, performances, updateProfile, refetchUser } = useAuth();
+  const { user, progress, performances, streakData, todaySolved, totalScore, refetchUser } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  const [hoveredDay, setHoveredDay] = useState(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [syncing, setSyncing] = useState(false);
+
+  // Trigger real-time sync of platform data on page mount
+  useEffect(() => {
+    const performMountSync = async () => {
+      setSyncing(true);
+      await refetchUser();
+      setSyncing(false);
+    };
+    performMountSync();
+  }, []);
+
+  // Debugging logs required by SECTION 14
+  useEffect(() => {
+    if (progress) {
+      console.log("Fetched platform data:", progress.platformStats);
+      console.log("Calculated streak:", streakData);
+      console.log("Heatmap submissions:", progress.submissions);
+    }
+  }, [progress, streakData]);
+
+  const getPlatformStats = (platformId) => {
+    if (!progress || !progress.platformStats) return null;
+    // Map serialization yields normal object, handle Mongoose Map or normal JS object keys
+    const statsObj = progress.platformStats;
+    if (typeof statsObj.get === "function") {
+      return statsObj.get(platformId);
+    }
+    return statsObj[platformId];
+  };
+
+  const codechefData = getPlatformStats("codechef");
+  const gfgData = getPlatformStats("geeksforgeeks");
+  const hackerRankData = getPlatformStats("hackerrank");
+
+  useEffect(() => {
+    console.log("CodeChef data:", codechefData);
+    console.log("GFG data:", gfgData);
+    console.log("HackerRank data:", hackerRankData);
+  }, [codechefData, gfgData, hackerRankData]);
 
   const majorTopics = [
     {
@@ -191,33 +220,6 @@ const Profile = () => {
     }
   ];
 
-  // Calculations for stats
-  const solvedCount = progress?.solvedProblems?.length || 0;
-  
-  let totalMastery = 0;
-  if (progress && progress.mastery) {
-    const entries = typeof progress.mastery.entries === "function" 
-      ? Array.from(progress.mastery.entries()) 
-      : Object.entries(progress.mastery);
-    entries.forEach(([_, score]) => {
-      totalMastery += score;
-    });
-  }
-  
-  const totalScore = solvedCount * 100 + totalMastery;
-
-  // Streak calculations
-  let streak = 0;
-  if (progress && progress.lastActivityDate) {
-    const diffTime = Math.abs(Date.now() - new Date(progress.lastActivityDate).getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (diffDays <= 2) {
-      streak = Math.max(1, (solvedCount % 7) + 1);
-    }
-  }
-  const bestStreak = Math.max(9, streak + 3);
-  const todaySolved = streak > 0 ? 1 : 0;
-
   // Connected handles boolean checks
   const isLcConnected = !!user?.leetcodeHandle;
   const isCfConnected = !!user?.codeforcesHandle;
@@ -227,29 +229,6 @@ const Profile = () => {
   const isCnConnected = !!user?.codingNinjasHandle;
   const isHeConnected = !!user?.hackerEarthHandle;
 
-  // Solve count distribution by platforms
-  const solvedByPlatform = {
-    leetcode: 0,
-    codeforces: 0,
-    codechef: 0,
-    geeksforgeeks: 0,
-    hackerrank: 0,
-    codingninjas: 0,
-    hackerearth: 0
-  };
-
-  if (performances) {
-    performances.forEach((perf) => {
-      const platform = perf.platform;
-      const solved = perf.totalSolved || 0;
-      if (solvedByPlatform[platform] !== undefined) {
-        solvedByPlatform[platform] += solved;
-      } else if (platform === "combined") {
-        solvedByPlatform.leetcode += Math.round(solved * 0.5);
-        solvedByPlatform.codeforces += Math.round(solved * 0.5);
-      }
-    });
-  }
 
   // Platform Details Data
   const platformsList = [
@@ -261,12 +240,16 @@ const Profile = () => {
       color: "border-l-amber-500",
       accentColor: "text-amber-500",
       url: `https://leetcode.com/${user?.leetcodeHandle}`,
-      stats: [
-        { label: "Total Solved", value: isLcConnected ? (148 + solvedByPlatform.leetcode) : "—" },
-        { label: "Difficulty", value: isLcConnected ? `E: ${87 + Math.round(solvedByPlatform.leetcode * 0.4)} | M: ${56 + Math.round(solvedByPlatform.leetcode * 0.5)} | H: ${5 + Math.round(solvedByPlatform.leetcode * 0.1)}` : "—" },
-        { label: "Contest Rating", value: isLcConnected ? "1,750" : "—" },
-        { label: "Global Rank", value: isLcConnected ? (1086440 - (getHashCode(user.leetcodeHandle) % 50000)).toLocaleString() : "—" }
-      ]
+      getStats: () => {
+        const stats = getPlatformStats("leetcode");
+        if (!stats) return [{ label: "Status", value: "Data unavailable" }];
+        return [
+          { label: "Total Solved", value: stats.totalSolved ?? "Data unavailable" },
+          { label: "Difficulty", value: (stats.easy !== undefined && stats.medium !== undefined && stats.hard !== undefined) ? `E: ${stats.easy} | M: ${stats.medium} | H: ${stats.hard}` : "Data unavailable" },
+          { label: "Contest Rating", value: stats.rating ? stats.rating.toLocaleString() : "0" },
+          { label: "Global Rank", value: stats.rank ? stats.rank.toLocaleString() : "Data unavailable" }
+        ];
+      }
     },
     {
       id: "codeforces",
@@ -276,12 +259,16 @@ const Profile = () => {
       color: "border-l-rose-500",
       accentColor: "text-rose-500",
       url: `https://codeforces.com/profile/${user?.codeforcesHandle}`,
-      stats: [
-        { label: "Rating", value: isCfConnected ? (1240 + (getHashCode(user.codeforcesHandle) % 400)) : "—" },
-        { label: "Max Rating", value: isCfConnected ? (1380 + (getHashCode(user.codeforcesHandle) % 300)) : "—" },
-        { label: "Rank Title", value: isCfConnected ? ((1240 + (getHashCode(user.codeforcesHandle) % 400) > 1400) ? "Specialist" : "Pupil") : "—" },
-        { label: "Solved / Contests", value: isCfConnected ? `S: ${solvedByPlatform.codeforces} | C: ${5 + (getHashCode(user.codeforcesHandle) % 15)}` : "—" }
-      ]
+      getStats: () => {
+        const stats = getPlatformStats("codeforces");
+        if (!stats) return [{ label: "Status", value: "Data unavailable" }];
+        return [
+          { label: "Rating", value: stats.rating ?? "Data unavailable" },
+          { label: "Max Rating", value: stats.maxRating ?? "Data unavailable" },
+          { label: "Rank Title", value: stats.rank || "Data unavailable" },
+          { label: "Solved / Contests", value: `S: ${stats.totalSolved ?? 0} | C: ${stats.contests ?? 0}` }
+        ];
+      }
     },
     {
       id: "codechef",
@@ -291,12 +278,16 @@ const Profile = () => {
       color: "border-l-yellow-600",
       accentColor: "text-yellow-600",
       url: `https://www.codechef.com/users/${user?.codechefHandle}`,
-      stats: [
-        { label: "Rating", value: isCcConnected ? (1083 + (getHashCode(user.codechefHandle) % 600)) : "—" },
-        { label: "Max Rating", value: isCcConnected ? (1200 + (getHashCode(user.codechefHandle) % 500)) : "—" },
-        { label: "Stars", value: isCcConnected ? `${1 + Math.floor((getHashCode(user.codechefHandle) % 600) / 200)}★` : "—" },
-        { label: "Solved / Global Rank", value: isCcConnected ? `S: ${solvedByPlatform.codechef} | R: ${(12410 + (getHashCode(user.codechefHandle) % 40000)).toLocaleString()}` : "—" }
-      ]
+      getStats: () => {
+        const stats = getPlatformStats("codechef");
+        if (!stats) return [{ label: "Status", value: "Data unavailable" }];
+        return [
+          { label: "Rating", value: stats.rating ?? "Data unavailable" },
+          { label: "Max Rating", value: stats.maxRating ?? "Data unavailable" },
+          { label: "Stars", value: stats.stars || "Data unavailable" },
+          { label: "Solved / Global Rank", value: `S: ${stats.totalSolved ?? 0} | R: ${stats.rank ? stats.rank.toLocaleString() : "Data unavailable"}` }
+        ];
+      }
     },
     {
       id: "geeksforgeeks",
@@ -306,12 +297,16 @@ const Profile = () => {
       color: "border-l-emerald-600",
       accentColor: "text-emerald-600",
       url: `https://auth.geeksforgeeks.org/user/${user?.gfgHandle}`,
-      stats: [
-        { label: "Score", value: isGfgConnected ? (145 + (getHashCode(user.gfgHandle) % 300)) : "—" },
-        { label: "Total Solved", value: isGfgConnected ? (68 + solvedByPlatform.geeksforgeeks) : "—" },
-        { label: "Institute Rank", value: isGfgConnected ? (1 + (getHashCode(user.gfgHandle) % 500)) : "—" },
-        { label: "Monthly Score", value: isGfgConnected ? (10 + (getHashCode(user.gfgHandle) % 80)) : "—" }
-      ]
+      getStats: () => {
+        const stats = getPlatformStats("geeksforgeeks");
+        if (!stats) return [{ label: "Status", value: "Data unavailable" }];
+        return [
+          { label: "Score", value: stats.rating ?? "Data unavailable" },
+          { label: "Total Solved", value: stats.totalSolved ?? "Data unavailable" },
+          { label: "Institute Rank", value: stats.rank ? stats.rank.toLocaleString() : "Data unavailable" },
+          { label: "Monthly Score", value: stats.maxRating ?? "Data unavailable" }
+        ];
+      }
     },
     {
       id: "hackerrank",
@@ -321,12 +316,16 @@ const Profile = () => {
       color: "border-l-teal-500",
       accentColor: "text-teal-500",
       url: `https://www.hackerrank.com/${user?.hackerrankHandle}`,
-      stats: [
-        { label: "Score", value: isHrConnected ? (10 + (getHashCode(user.hackerrankHandle) % 200)) : "—" },
-        { label: "Level", value: isHrConnected ? (5 + (getHashCode(user.hackerrankHandle) % 5)) : "—" },
-        { label: "Badges", value: isHrConnected ? (1 + (getHashCode(user.hackerrankHandle) % 4)) : "—" },
-        { label: "Certs / Solved", value: isHrConnected ? `C: ${getHashCode(user.hackerrankHandle) % 3} | S: ${solvedByPlatform.hackerrank}` : "—" }
-      ]
+      getStats: () => {
+        const stats = getPlatformStats("hackerrank");
+        if (!stats) return [{ label: "Status", value: "Data unavailable" }];
+        return [
+          { label: "Score", value: stats.rating ?? "Data unavailable" },
+          { label: "Level", value: stats.rank ?? "Data unavailable" },
+          { label: "Badges", value: stats.badges ?? "Data unavailable" },
+          { label: "Certs / Solved", value: `C: ${stats.certs ?? 0} | S: ${stats.totalSolved ?? 0}` }
+        ];
+      }
     },
     {
       id: "codingninjas",
@@ -336,12 +335,16 @@ const Profile = () => {
       color: "border-l-orange-500",
       accentColor: "text-orange-500",
       url: `https://www.naukri.com/code360/profile/${user?.codingNinjasHandle}`,
-      stats: [
-        { label: "Total Solved", value: isCnConnected ? (45 + solvedByPlatform.codingninjas) : "—" },
-        { label: "Points", value: isCnConnected ? (320 + (getHashCode(user.codingNinjasHandle) % 500)) : "—" },
-        { label: "Accuracy", value: isCnConnected ? `${80 + (getHashCode(user.codingNinjasHandle) % 15)}%` : "—" },
-        { label: "Coding Rank", value: isCnConnected ? (5410 + (getHashCode(user.codingNinjasHandle) % 15000)).toLocaleString() : "—" }
-      ]
+      getStats: () => {
+        const stats = getPlatformStats("codingninjas");
+        if (!stats) return [{ label: "Status", value: "Data unavailable" }];
+        return [
+          { label: "Total Solved", value: stats.totalSolved ?? "Data unavailable" },
+          { label: "Points", value: stats.rating ?? "Data unavailable" },
+          { label: "Accuracy", value: stats.accuracy || "Data unavailable" },
+          { label: "Coding Rank", value: stats.rank ? stats.rank.toLocaleString() : "Data unavailable" }
+        ];
+      }
     },
     {
       id: "hackerearth",
@@ -351,62 +354,127 @@ const Profile = () => {
       color: "border-l-purple-500",
       accentColor: "text-purple-500",
       url: `https://www.hackerearth.com/@${user?.hackerEarthHandle}`,
-      stats: [
-        { label: "Points", value: isHeConnected ? (120 + (getHashCode(user.hackerEarthHandle) % 300)) : "—" },
-        { label: "Problems Solved", value: isHeConnected ? (24 + solvedByPlatform.hackerearth) : "—" },
-        { label: "Rating", value: isHeConnected ? (1150 + (getHashCode(user.hackerEarthHandle) % 400)) : "—" },
-        { label: "Global Rank", value: isHeConnected ? (4320 + (getHashCode(user.hackerEarthHandle) % 10000)).toLocaleString() : "—" }
-      ]
+      getStats: () => {
+        const stats = getPlatformStats("hackerearth");
+        if (!stats) return [{ label: "Status", value: "Data unavailable" }];
+        return [
+          { label: "Points", value: stats.points ?? "Data unavailable" },
+          { label: "Problems Solved", value: stats.totalSolved ?? "Data unavailable" },
+          { label: "Rating", value: stats.rating ?? "Data unavailable" },
+          { label: "Global Rank", value: stats.rank ? stats.rank.toLocaleString() : "Data unavailable" }
+        ];
+      }
     }
   ];
 
-  // Score History Data mock (updates dynamically based on platforms connected)
-  const historyData = [
-    { month: "18/4", LeetCode: isLcConnected ? 15 : 0, Codeforces: isCfConnected ? 10 : 0, CodeChef: isCcConnected ? 12 : 0, GFG: isGfgConnected ? 8 : 0, TotalScore: isLcConnected || isCfConnected ? 25 : 0 },
-    { month: "24/4", LeetCode: isLcConnected ? 22 : 0, Codeforces: isCfConnected ? 18 : 0, CodeChef: isCcConnected ? 20 : 0, GFG: isGfgConnected ? 15 : 0, TotalScore: isLcConnected || isCfConnected ? 40 : 0 },
-    { month: "1/5", LeetCode: isLcConnected ? 35 : 0, Codeforces: isCfConnected ? 24 : 0, CodeChef: isCcConnected ? 28 : 0, GFG: isGfgConnected ? 22 : 0, TotalScore: isLcConnected || isCfConnected ? 65 : 0 },
-    { month: "10/5", LeetCode: isLcConnected ? 58 : 0, Codeforces: isCfConnected ? 30 : 0, CodeChef: isCcConnected ? 32 : 0, GFG: isGfgConnected ? 28 : 0, TotalScore: isLcConnected || isCfConnected ? 95 : 0 },
-    { month: "23/5", LeetCode: isLcConnected ? 82 : 0, Codeforces: isCfConnected ? 36 : 0, CodeChef: isCcConnected ? 35 : 0, GFG: isGfgConnected ? 30 : 0, TotalScore: isLcConnected || isCfConnected ? 140 : 0 },
-    { month: "1/6", LeetCode: isLcConnected ? (148 + solvedByPlatform.leetcode) : 0, Codeforces: isCfConnected ? (14 + solvedByPlatform.codeforces) : 0, CodeChef: isCcConnected ? (32 + solvedByPlatform.codechef) : 0, GFG: isGfgConnected ? (68 + solvedByPlatform.geeksforgeeks) : 0, TotalScore: totalScore }
-  ];
-
-  // Radar Data
-  const radarData = [
-    { subject: "LeetCode", A: isLcConnected ? 85 : 20, fullMark: 100 },
-    { subject: "Codeforces", A: isCfConnected ? 60 : 20, fullMark: 100 },
-    { subject: "CodeChef", A: isCcConnected ? 70 : 20, fullMark: 100 },
-    { subject: "GFG", A: isGfgConnected ? 75 : 20, fullMark: 100 },
-    { subject: "HackerRank", A: isHrConnected ? 65 : 20, fullMark: 100 },
-    { subject: "CN", A: isCnConnected ? 80 : 20, fullMark: 100 },
-    { subject: "HE", A: isHeConnected ? 50 : 20, fullMark: 100 }
-  ];
-
-  // Contribution Heatmap rendering
-  const daysInHeatmap = 140; // 20 weeks
-  const mockContributions = Array.from({ length: daysInHeatmap }, (_, idx) => {
-    const seed = Math.sin(idx) * idx;
-    if (seed % 7 === 0) return 3;
-    if (seed % 3 === 0) return 1;
-    if (seed % 5 === 0) return 2;
-    return 0;
+  // Heatmap generation logic
+  const acSubmissions = (progress?.submissions || []).filter(sub => sub.result === "AC");
+  const submissionsCountByDate = {};
+  acSubmissions.forEach(sub => {
+    const d = new Date(sub.timestamp);
+    if (!isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const dateStr = `${y}-${m}-${day}`;
+      submissionsCountByDate[dateStr] = (submissionsCountByDate[dateStr] || 0) + 1;
+    }
   });
 
-  const getHeatmapColor = (level) => {
-    switch (level) {
-      case 1: return "bg-indigo-200 dark:bg-indigo-900/40 border border-indigo-300/10";
-      case 2: return "bg-indigo-400 dark:bg-indigo-700/60 border border-indigo-500/10";
-      case 3: return "bg-indigo-600 dark:bg-indigo-500 border border-indigo-600/20";
-      default: return "bg-slate-100 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-800/20";
+  // Calculate startDate (365 days ago) aligned to Sunday
+  const todayDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(todayDate.getDate() - 365);
+  const startDayOfWeek = startDate.getDay(); // 0 (Sun) to 6 (Sat)
+  startDate.setDate(startDate.getDate() - startDayOfWeek);
+
+  const weeks = [];
+  let currentWeek = [];
+  const tempDate = new Date(startDate);
+  tempDate.setHours(0, 0, 0, 0);
+
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+
+  while (tempDate <= todayMidnight || currentWeek.length > 0) {
+    if (currentWeek.length === 7) {
+      weeks.push(currentWeek);
+      currentWeek = [];
     }
+
+    if (tempDate > todayMidnight) {
+      while (currentWeek.length < 7) {
+        currentWeek.push(null);
+      }
+      weeks.push(currentWeek);
+      break;
+    }
+
+    const y = tempDate.getFullYear();
+    const m = String(tempDate.getMonth() + 1).padStart(2, "0");
+    const d = String(tempDate.getDate()).padStart(2, "0");
+    const dateStr = `${y}-${m}-${d}`;
+
+    const count = submissionsCountByDate[dateStr] || 0;
+
+    currentWeek.push({
+      dateStr,
+      count,
+      timestamp: new Date(tempDate)
+    });
+
+    tempDate.setDate(tempDate.getDate() + 1);
+  }
+
+  const totalSubmissionsPastYear = weeks.reduce((sum, w) => sum + w.reduce((wSum, day) => wSum + (day ? day.count : 0), 0), 0);
+  const activeDaysCount = weeks.reduce((sum, w) => sum + w.filter(day => day && day.count > 0).length, 0);
+
+  const getHeatmapColor = (count) => {
+    if (count === 0) return "bg-[#2A2A2A] border border-slate-800/10";
+    if (count <= 2) return "bg-[#0E4429] border border-emerald-950/10";
+    if (count <= 4) return "bg-[#26A641] border border-emerald-500/10";
+    if (count <= 6) return "bg-[#39D353] border border-emerald-400/10";
+    return "bg-[#4FFF6D] border border-emerald-300/10";
   };
 
-  const activeDays = mockContributions.filter(x => x > 0).length;
-  // Calculate total solves based on DB solves
-  const totalSubmissions = 483 + solvedCount;
+  const formatLastSynced = () => {
+    if (!progress?.lastSynced) return "Never synced";
+    const diffMs = Date.now() - new Date(progress.lastSynced).getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    if (diffMins < 1) return "Last synced just now";
+    if (diffMins === 1) return "Last synced 1 min ago";
+    if (diffMins < 60) return `Last synced ${diffMins} min ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours === 1) return "Last synced 1 hour ago";
+    return `Last synced ${diffHours} hours ago`;
+  };
+
+  const formatCardLastSynced = (fetchedAt) => {
+    if (!fetchedAt) return "Never synced";
+    const diffMs = Date.now() - new Date(fetchedAt).getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    if (diffMins < 1) return "Last synced just now";
+    if (diffMins === 1) return "Last synced 1 min ago";
+    if (diffMins < 60) return `Last synced ${diffMins} min ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours === 1) return "Last synced 1 hour ago";
+    return `Last synced ${diffHours} hours ago`;
+  };
+
+  const getCodeChefStarsString = (rating) => {
+    let count = 1;
+    if (rating < 1400) count = 1;
+    else if (rating < 1600) count = 2;
+    else if (rating < 1800) count = 3;
+    else if (rating < 2000) count = 4;
+    else if (rating < 2200) count = 5;
+    else if (rating < 2500) count = 6;
+    else count = 7;
+    return "★".repeat(count);
+  };
 
   return (
     <div className="flex-1 flex flex-col gap-8 max-w-6xl mx-auto w-full pb-12 transition-colors duration-200">
-      
       {successMsg && (
         <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2.5 shadow-sm">
           <ShieldCheck className="w-5 h-5 shrink-0" />
@@ -464,10 +532,10 @@ const Profile = () => {
       {/* SECTION 2: Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Score", value: totalScore.toLocaleString(), icon: Zap, color: "text-indigo-500" },
-          { label: "Current Streak", value: `${streak} Days`, icon: Flame, color: "text-amber-500" },
-          { label: "Best Streak", value: `${bestStreak} Days`, icon: Flame, color: "text-red-500" },
-          { label: "Today Solved", value: todaySolved, icon: ShieldCheck, color: "text-emerald-500" }
+          { label: "Total Score", value: (totalScore || 0).toLocaleString(), icon: Zap, color: "text-indigo-500" },
+          { label: "Current Streak", value: `${streakData?.currentStreak || 0} Day${(streakData?.currentStreak || 0) !== 1 ? "s" : ""}`, icon: Flame, color: "text-amber-500" },
+          { label: "Best Streak", value: `${streakData?.bestStreak || 0} Day${(streakData?.bestStreak || 0) !== 1 ? "s" : ""}`, icon: Flame, color: "text-red-500" },
+          { label: "Today Solved", value: todaySolved || 0, icon: ShieldCheck, color: "text-emerald-500" }
         ].map((stat, idx) => {
           const Icon = stat.icon;
           return (
@@ -484,123 +552,415 @@ const Profile = () => {
 
       {/* SECTION 3: Platform Cards */}
       <div className="flex flex-col gap-4 text-left">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 m-0">Connected Platforms</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 m-0">Connected Platforms</h2>
+          <span className="text-5xs text-slate-500 font-mono font-medium">{formatLastSynced()}</span>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {platformsList.map((platform) => (
-            <div
-              key={platform.id}
-              className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${platform.color} p-6 rounded-xl flex flex-col justify-between gap-4 shadow-3xs relative`}
-            >
-              {platform.connected && (
-                <a
-                  href={platform.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                  title={`Open ${platform.name} profile`}
+          {platformsList.map((platform) => {
+            if (syncing) {
+              return (
+                <div
+                  key={platform.id}
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl flex flex-col justify-between gap-4 shadow-3xs animate-pulse text-left"
                 >
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              )}
+                  <div className="flex flex-col gap-2">
+                    <div className="h-4 bg-slate-250 dark:bg-slate-800 rounded w-1/3"></div>
+                    <div className="h-3 bg-slate-250 dark:bg-slate-800 rounded w-1/4 mt-1"></div>
+                  </div>
+                  <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex flex-col gap-3">
+                    <div className="h-3 bg-slate-250 dark:bg-slate-800 rounded w-full"></div>
+                    <div className="h-3 bg-slate-250 dark:bg-slate-800 rounded w-5/6"></div>
+                    <div className="h-3 bg-slate-250 dark:bg-slate-800 rounded w-4/6"></div>
+                  </div>
+                </div>
+              );
+            }
 
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  {platform.name}
-                  {platform.connected && (
-                    <span className="text-4xs font-mono font-medium text-slate-400 truncate max-w-[150px]">
-                      (@{platform.handle})
-                    </span>
+            // Custom CodeChef Card
+            if (platform.id === "codechef") {
+              const isConnected = platform.connected;
+              const hasStats = codechefData && !codechefData.error;
+              const statsObj = codechefData?.stats || {};
+              const ratingVal = statsObj.rating ?? codechefData?.rating ?? 0;
+              const maxRatingVal = statsObj.maxRating ?? codechefData?.maxRating ?? 0;
+              const divisionVal = statsObj.division ?? (ratingVal < 1400 ? "Div 4" : ratingVal < 1600 ? "Div 3" : ratingVal < 1800 ? "Div 2" : "Div 1");
+              const starsVal = getCodeChefStarsString(ratingVal);
+              const globalRankVal = statsObj.globalRank ?? statsObj.rank ?? codechefData?.rank ?? 0;
+              const countryRankVal = statsObj.countryRank ?? 0;
+              let badgesVal = statsObj.badges ?? codechefData?.badges ?? [];
+              if (typeof badgesVal === "string") {
+                badgesVal = badgesVal.split(",").map(b => b.trim()).filter(Boolean);
+              }
+
+              return (
+                <div
+                  key={platform.id}
+                  className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${platform.color} p-6 rounded-xl flex flex-col gap-4 shadow-3xs relative text-left`}
+                >
+                  {isConnected && (
+                    <a
+                      href={platform.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                      title={`Open ${platform.name} profile`}
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
                   )}
-                </span>
-              </div>
 
-              {platform.connected ? (
-                <div className="grid grid-cols-2 gap-y-3.5 gap-x-2 border-t border-slate-100 dark:border-slate-850 pt-4 text-2xs">
-                  {platform.stats.map((stat, sIdx) => (
-                    <div key={sIdx} className="flex flex-col gap-0.5 text-left">
-                      <span className="text-4xs text-slate-400 dark:text-slate-500 font-semibold">{stat.label}</span>
-                      <span className="font-semibold text-slate-900 dark:text-slate-200 truncate">{stat.value}</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">CodeChef Rating</span>
+                    <span className="text-5xs text-slate-400 dark:text-slate-500 font-mono font-medium">DSA Rating</span>
+                  </div>
+
+                  {isConnected ? (
+                    hasStats ? (
+                      <div className="flex flex-col gap-4 border-t border-slate-100 dark:border-slate-850 pt-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-3xl font-extrabold text-slate-900 dark:text-white leading-none">
+                            {ratingVal}
+                          </span>
+                          <span className="text-4xs font-bold text-slate-400 dark:text-slate-550 leading-none self-end pb-1">
+                            ({divisionVal})
+                          </span>
+                          <span className="text-yellow-500 text-sm leading-none self-end pb-1 font-bold">
+                            {starsVal}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col text-5xs text-slate-450 dark:text-slate-500 leading-normal">
+                          <span className="font-semibold text-slate-500 dark:text-slate-450">CodeChef Rating</span>
+                          <span className="font-medium text-slate-400 dark:text-slate-550">
+                            (Highest Rating {maxRatingVal})
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-850 pt-3">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">
+                              {globalRankVal ? globalRankVal.toLocaleString() : "Data unavailable"}
+                            </span>
+                            <span className="text-5xs text-slate-400 dark:text-slate-500 font-semibold mt-0.5">
+                              Global Rank
+                            </span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">
+                              {countryRankVal ? countryRankVal.toLocaleString() : "Data unavailable"}
+                            </span>
+                            <span className="text-5xs text-slate-400 dark:text-slate-500 font-semibold mt-0.5">
+                              Country Rank
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-slate-100 dark:border-slate-850 pt-3 flex flex-col gap-1.5">
+                          <span className="text-5xs text-slate-450 dark:text-slate-500 font-bold uppercase tracking-wider">
+                            Badges
+                          </span>
+                          <div className="flex flex-col gap-1 text-2xs text-slate-600 dark:text-slate-350">
+                            {badgesVal && badgesVal.length > 0 ? (
+                              badgesVal.map((badge, bIdx) => (
+                                <span key={bIdx} className="font-medium">
+                                  {badge}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-slate-500 italic">No badges yet</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-5xs text-slate-555 dark:text-slate-500 font-mono mt-1 border-t border-slate-100 dark:border-slate-850 pt-3">
+                          {formatCardLastSynced(codechefData?.fetchedAt)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex flex-col gap-1.5">
+                        <span className="text-2xs text-slate-400 italic">Data unavailable</span>
+                        <div className="text-5xs text-slate-555 dark:text-slate-500 font-mono mt-2">
+                          Unable to sync platform data
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex flex-col gap-3">
+                      <p className="text-4xs text-slate-400 dark:text-slate-500 leading-normal my-0">
+                        Connect your CodeChef handle to start syncing submission metrics and analyzing weak areas.
+                      </p>
+                      <button
+                        onClick={() => setModalOpen(true)}
+                        className="self-start text-5xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 focus:outline-none"
+                      >
+                        Connect Platform
+                      </button>
                     </div>
-                  ))}
+                  )}
                 </div>
-              ) : (
-                <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex flex-col gap-3">
-                  <p className="text-4xs text-slate-400 dark:text-slate-500 leading-normal my-0">
-                    Connect your {platform.name} handle to start syncing submission metrics and analyzing weak areas.
-                  </p>
-                  <button
-                    onClick={() => setModalOpen(true)}
-                    className="self-start text-5xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 focus:outline-none"
+              );
+            }
+
+            // Custom GeeksforGeeks Card
+            if (platform.id === "geeksforgeeks") {
+              const isConnected = platform.connected;
+              const hasStats = gfgData && !gfgData.error;
+              const statsObj = gfgData?.stats || {};
+              const scoreVal = statsObj.score ?? statsObj.codingScore ?? gfgData?.rating ?? "Data unavailable";
+              const solvedVal = statsObj.solved ?? gfgData?.totalSolved ?? "Data unavailable";
+              const rankVal = statsObj.instituteRank ?? statsObj.rank ?? gfgData?.rank ?? "Data unavailable";
+              const monthlyVal = statsObj.monthlyScore ?? statsObj.maxRating ?? gfgData?.maxRating ?? "Data unavailable";
+
+              return (
+                <div
+                  key={platform.id}
+                  className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${platform.color} p-6 rounded-xl flex flex-col justify-between gap-4 shadow-3xs relative text-left`}
+                >
+                  {isConnected && (
+                    <a
+                      href={platform.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                      title={`Open ${platform.name} profile`}
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      {platform.name}
+                      {isConnected && (
+                        <span className="text-4xs font-mono font-medium text-slate-400 truncate max-w-[150px]">
+                          (@{platform.handle})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  {isConnected ? (
+                    hasStats ? (
+                      <div className="flex flex-col gap-4 border-t border-slate-100 dark:border-slate-850 pt-4">
+                        <div className="grid grid-cols-2 gap-y-3.5 gap-x-2 text-2xs">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-4xs text-slate-400 dark:text-slate-500 font-semibold">Coding Score</span>
+                            <span className="font-semibold text-slate-900 dark:text-white">{scoreVal}</span>
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-4xs text-slate-400 dark:text-slate-500 font-semibold">Problems Solved</span>
+                            <span className="font-semibold text-slate-900 dark:text-white">{solvedVal}</span>
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-4xs text-slate-400 dark:text-slate-500 font-semibold">Institute Rank</span>
+                            <span className="font-semibold text-slate-900 dark:text-white">
+                              {rankVal ? rankVal.toLocaleString() : "Data unavailable"}
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-4xs text-slate-400 dark:text-slate-500 font-semibold">Monthly Score</span>
+                            <span className="font-semibold text-slate-900 dark:text-white">{monthlyVal}</span>
+                          </div>
+                        </div>
+                        <div className="text-5xs text-slate-555 dark:text-slate-500 font-mono mt-1 border-t border-slate-105 dark:border-slate-850 pt-3">
+                          {formatCardLastSynced(gfgData?.fetchedAt)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex flex-col gap-1.5">
+                        <span className="text-2xs text-slate-400 italic">Data unavailable</span>
+                        <div className="text-5xs text-slate-555 dark:text-slate-500 font-mono mt-2">
+                          Unable to sync platform data
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex flex-col gap-3">
+                      <p className="text-4xs text-slate-400 dark:text-slate-500 leading-normal my-0">
+                        Connect your GeeksforGeeks handle to start syncing submission metrics and analyzing weak areas.
+                      </p>
+                      <button
+                        onClick={() => setModalOpen(true)}
+                        className="self-start text-5xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 focus:outline-none"
+                      >
+                        Connect Platform
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            // Custom HackerRank Card
+            if (platform.id === "hackerrank") {
+              const isConnected = platform.connected;
+              const hasStats = hackerRankData && !hackerRankData.error;
+              const statsObj = hackerRankData?.stats || {};
+              const scoreVal = statsObj.score ?? hackerRankData?.rating ?? "Data unavailable";
+              const levelVal = statsObj.level ?? statsObj.rank ?? hackerRankData?.rank ?? "Data unavailable";
+              const badgesVal = statsObj.badges ?? hackerRankData?.badges ?? "Data unavailable";
+              const certsVal = statsObj.certs ?? hackerRankData?.certs ?? "Data unavailable";
+              const solvedVal = statsObj.solved ?? hackerRankData?.totalSolved ?? "Data unavailable";
+
+              return (
+                <div
+                  key={platform.id}
+                  className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${platform.color} p-6 rounded-xl flex flex-col justify-between gap-4 shadow-3xs relative text-left`}
+                >
+                  {isConnected && (
+                    <a
+                      href={platform.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                      title={`Open ${platform.name} profile`}
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      {platform.name}
+                      {isConnected && (
+                        <span className="text-4xs font-mono font-medium text-slate-400 truncate max-w-[150px]">
+                          (@{platform.handle})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  {isConnected ? (
+                    hasStats ? (
+                      <div className="flex flex-col gap-4 border-t border-slate-100 dark:border-slate-850 pt-4">
+                        <div className="grid grid-cols-2 gap-y-3.5 gap-x-2 text-2xs">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-4xs text-slate-400 dark:text-slate-500 font-semibold">Score</span>
+                            <span className="font-semibold text-slate-900 dark:text-white">{scoreVal}</span>
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-4xs text-slate-400 dark:text-slate-500 font-semibold">Level</span>
+                            <span className="font-semibold text-slate-900 dark:text-white">{levelVal}</span>
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-4xs text-slate-400 dark:text-slate-500 font-semibold">Badges</span>
+                            <span className="font-semibold text-slate-900 dark:text-white">{badgesVal}</span>
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-4xs text-slate-400 dark:text-slate-500 font-semibold">Certifications</span>
+                            <span className="font-semibold text-slate-900 dark:text-white">{certsVal}</span>
+                          </div>
+                          <div className="flex flex-col gap-0.5 col-span-2">
+                            <span className="text-4xs text-slate-400 dark:text-slate-500 font-semibold">Problems Solved</span>
+                            <span className="font-semibold text-slate-900 dark:text-white">{solvedVal}</span>
+                          </div>
+                        </div>
+                        <div className="text-5xs text-slate-555 dark:text-slate-500 font-mono mt-1 border-t border-slate-105 dark:border-slate-850 pt-3">
+                          {formatCardLastSynced(hackerRankData?.fetchedAt)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex flex-col gap-1.5">
+                        <span className="text-2xs text-slate-400 italic">Unable to fetch HackerRank stats</span>
+                        <div className="text-5xs text-slate-555 dark:text-slate-500 font-mono mt-2">
+                          Unable to sync platform data
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex flex-col gap-3">
+                      <p className="text-4xs text-slate-400 dark:text-slate-500 leading-normal my-0">
+                        Connect your HackerRank handle to start syncing submission metrics and analyzing weak areas.
+                      </p>
+                      <button
+                        onClick={() => setModalOpen(true)}
+                        className="self-start text-5xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 focus:outline-none"
+                      >
+                        Connect Platform
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            // General platforms layout
+            const pStats = getPlatformStats(platform.id);
+            const isConnected = platform.connected;
+            const hasStats = pStats && !pStats.error;
+
+            return (
+              <div
+                key={platform.id}
+                className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${platform.color} p-6 rounded-xl flex flex-col justify-between gap-4 shadow-3xs relative text-left`}
+              >
+                {isConnected && (
+                  <a
+                    href={platform.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                    title={`Open ${platform.name} profile`}
                   >
-                    Connect Platform
-                  </button>
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
+
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    {platform.name}
+                    {isConnected && (
+                      <span className="text-4xs font-mono font-medium text-slate-400 truncate max-w-[150px]">
+                        (@{platform.handle})
+                      </span>
+                    )}
+                  </span>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {isConnected ? (
+                  hasStats ? (
+                    <div className="flex flex-col gap-4 border-t border-slate-100 dark:border-slate-850 pt-4">
+                      <div className="grid grid-cols-2 gap-y-3.5 gap-x-2 text-2xs">
+                        {platform.getStats().map((stat, sIdx) => (
+                          <div key={sIdx} className="flex flex-col gap-0.5 text-left">
+                            <span className="text-4xs text-slate-400 dark:text-slate-500 font-semibold">{stat.label}</span>
+                            <span className={`font-semibold text-slate-900 dark:text-slate-200 truncate ${stat.value === "Data unavailable" ? "text-slate-400 dark:text-slate-500 italic font-normal" : ""}`}>
+                              {stat.value}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-5xs text-slate-555 dark:text-slate-500 font-mono mt-1 border-t border-slate-105 dark:border-slate-850 pt-3">
+                        {formatCardLastSynced(pStats?.fetchedAt)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex flex-col gap-1.5">
+                      <span className="text-2xs text-slate-400 italic">Data unavailable</span>
+                      <div className="text-5xs text-slate-555 dark:text-slate-500 font-mono mt-2">
+                        Unable to sync platform data
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex flex-col gap-3">
+                    <p className="text-4xs text-slate-400 dark:text-slate-500 leading-normal my-0">
+                      Connect your {platform.name} handle to start syncing submission metrics and analyzing weak areas.
+                    </p>
+                    <button
+                      onClick={() => setModalOpen(true)}
+                      className="self-start text-5xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 focus:outline-none"
+                    >
+                      Connect Platform
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
-      </div>
-
-      {/* Visual Chart Rows */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch text-left">
-        
-        {/* SECTION 4: Score History Line Chart */}
-        <div className="lg:col-span-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl flex flex-col gap-4 shadow-3xs">
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 m-0">Performance Trend</h3>
-            <p className="text-5xs text-slate-400 dark:text-slate-500 mt-1 my-0">
-              Progression curve showcasing consolidated score changes across synced coding profiles.
-            </p>
-          </div>
-
-          <div className="h-64 w-full mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={historyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === "dark" ? "#334155" : "#e2e8f0"} />
-                <XAxis dataKey="month" stroke="#94a3b8" fontSize={10} tickLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: theme === "dark" ? "#1e293b" : "#ffffff",
-                    borderColor: theme === "dark" ? "#334155" : "#e2e8f0",
-                    color: theme === "dark" ? "#f1f5f9" : "#0f172a",
-                    borderRadius: "8px",
-                    fontSize: "11px"
-                  }}
-                />
-                <Legend wrapperStyle={{ fontSize: "10px", marginTop: "10px" }} />
-                {isLcConnected && <Line type="monotone" dataKey="LeetCode" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3 }} />}
-                {isCfConnected && <Line type="monotone" dataKey="Codeforces" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 3 }} />}
-                {isCcConnected && <Line type="monotone" dataKey="CodeChef" stroke="#d97706" strokeWidth={2.5} dot={{ r: 3 }} />}
-                {isGfgConnected && <Line type="monotone" dataKey="GFG" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3 }} />}
-                <Line type="monotone" dataKey="TotalScore" name="Total Score" stroke="#6366f1" strokeWidth={3} dot={{ r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* SECTION 5: Platform Comparison Radar */}
-        <div className="lg:col-span-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl flex flex-col gap-4 shadow-3xs">
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 m-0">Platform Distribution</h3>
-            <p className="text-5xs text-slate-400 dark:text-slate-500 mt-1 my-0">
-              Proficiency radar across all 7 coding platforms.
-            </p>
-          </div>
-
-          <div className="h-64 w-full flex items-center justify-center mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
-                <PolarGrid stroke={theme === "dark" ? "#334155" : "#e2e8f0"} />
-                <PolarAngleAxis dataKey="subject" stroke="#94a3b8" fontSize={9} />
-                <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#94a3b8" fontSize={8} tick={false} />
-                <Radar name="Proficiency" dataKey="A" stroke="#6366f1" fill="#6366f1" fillOpacity={0.15} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
       </div>
 
       {/* SECTION 6: Contribution Heatmap */}
@@ -609,58 +969,121 @@ const Profile = () => {
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 m-0">Submission Activity</h3>
             <p className="text-5xs text-slate-400 dark:text-slate-500 mt-1 my-0">
-              Chronological log of solved problems and test runs over the past 20 weeks.
+              Chronological log of solved problems and test runs over the past year.
             </p>
           </div>
           
           <div className="flex items-center gap-4 text-5xs text-slate-400 font-mono">
-            <span>Total Submissions: <strong className="text-indigo-650 dark:text-indigo-400">{totalSubmissions}</strong></span>
-            <span>Active Days: <strong className="text-indigo-650 dark:text-indigo-400">{activeDays} active days</strong></span>
+            <span>Total Submissions: <strong className="text-indigo-650 dark:text-indigo-400">{totalSubmissionsPastYear}</strong></span>
+            <span>Active Days: <strong className="text-indigo-650 dark:text-indigo-400">{activeDaysCount} active days</strong></span>
           </div>
         </div>
 
-        {/* Heatmap Grid */}
-        <div className="overflow-x-auto pb-2">
-          <div className="flex flex-col gap-1 min-w-[500px]">
-            <div className="flex justify-between pl-6 text-5xs text-slate-400 font-mono pr-2">
-              <span>Dec</span>
-              <span>Jan</span>
-              <span>Feb</span>
-              <span>Mar</span>
-              <span>Apr</span>
-              <span>May</span>
-            </div>
-
-            <div className="flex gap-1.5">
-              <div className="flex flex-col justify-between text-5xs text-slate-400 font-mono pr-1.5 py-0.5 leading-none h-[82px]">
-                <span>Mon</span>
-                <span>Wed</span>
-                <span>Fri</span>
+        {/* Empty States / Heatmap Grid */}
+        {!isLcConnected && !isCfConnected && !isCcConnected && !isGfgConnected && !isHrConnected && !isCnConnected && !isHeConnected ? (
+          <div className="flex flex-col items-center justify-center py-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-center">
+            <AlertCircle className="w-8 h-8 text-slate-400 dark:text-slate-650 mb-2" />
+            <span className="text-2xs font-semibold text-slate-650 dark:text-slate-400">Connect your platform to view analytics</span>
+          </div>
+        ) : progress?.submissions?.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-center">
+            <Flame className="w-8 h-8 text-slate-400 dark:text-slate-650 mb-2" />
+            <span className="text-2xs font-semibold text-slate-600 dark:text-slate-350">No submission activity yet</span>
+            <span className="text-4xs text-slate-400 dark:text-slate-500 mt-1">Start solving problems to build your streak</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-850 scrollbar-track-transparent">
+            <div className="flex flex-col gap-1 min-w-[760px] select-none relative pb-1">
+              {/* Month Labels Row */}
+              <div className="flex pl-8 h-4 relative mb-1">
+                {weeks.map((week, wIdx) => {
+                  const firstDay = week.find(day => day !== null);
+                  if (firstDay && firstDay.timestamp.getDate() <= 7) {
+                    return (
+                      <span
+                        key={wIdx}
+                        className="absolute text-5xs text-slate-400 font-mono font-semibold"
+                        style={{ left: `${32 + wIdx * 14}px` }} // 32px label pad + 14px per column
+                      >
+                        {firstDay.timestamp.toLocaleDateString("en-US", { month: "short" })}
+                      </span>
+                    );
+                  }
+                  return null;
+                })}
               </div>
 
-              <div className="flex-1 grid grid-flow-col grid-rows-7 gap-1 h-[82px]">
-                {mockContributions.map((level, idx) => (
-                  <div
-                    key={idx}
-                    className={`w-2.5 h-2.5 rounded-sm transition-all duration-150 ${getHeatmapColor(level)}`}
-                    title={`Day ${idx + 1}: ${level === 3 ? "High activity" : level === 2 ? "Medium activity" : level === 1 ? "Low activity" : "No solves"}`}
-                  />
-                ))}
+              <div className="flex gap-1.5">
+                <div className="flex flex-col justify-between text-5xs text-slate-400 font-mono pr-2 py-0.5 leading-none h-[78px]">
+                  <span className="h-2 flex items-center"></span>
+                  <span className="h-2 flex items-center font-medium">Mon</span>
+                  <span className="h-2 flex items-center"></span>
+                  <span className="h-2 flex items-center font-medium">Wed</span>
+                  <span className="h-2 flex items-center"></span>
+                  <span className="h-2 flex items-center font-medium">Fri</span>
+                  <span className="h-2 flex items-center"></span>
+                </div>
+
+                <div className="flex-1 flex gap-1 h-[78px]">
+                  {weeks.map((week, wIdx) => (
+                    <div key={wIdx} className="flex flex-col gap-1">
+                      {week.map((day, dIdx) => {
+                        if (!day) return <div key={dIdx} className="w-2.5 h-2.5 bg-transparent" />;
+                        return (
+                          <div
+                            key={dIdx}
+                            className={`w-2.5 h-2.5 rounded-sm transition-all duration-150 cursor-pointer ${getHeatmapColor(day.count)} hover:scale-110 hover:shadow-xs`}
+                            onMouseEnter={(e) => {
+                              setHoveredDay(day);
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setTooltipPos({
+                                x: rect.left + window.scrollX + rect.width / 2,
+                                y: rect.top + window.scrollY - 8
+                              });
+                            }}
+                            onMouseLeave={() => setHoveredDay(null)}
+                          />
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Legend */}
-        <div className="flex items-center gap-2 justify-end text-5xs text-slate-400 font-mono mt-1">
-          <span>Less</span>
-          <div className="w-2.5 h-2.5 rounded-sm bg-slate-100 dark:bg-slate-800/40 border border-slate-200/50 dark:border-slate-800/20" />
-          <div className="w-2.5 h-2.5 rounded-sm bg-indigo-200 dark:bg-indigo-900/40" />
-          <div className="w-2.5 h-2.5 rounded-sm bg-indigo-400 dark:bg-indigo-700/60" />
-          <div className="w-2.5 h-2.5 rounded-sm bg-indigo-600 dark:bg-indigo-500" />
-          <span>More</span>
-        </div>
+        {progress?.submissions?.length > 0 && (
+          <div className="flex items-center gap-2 justify-end text-5xs text-slate-400 font-mono mt-2">
+            <span>Less</span>
+            <div className="w-2.5 h-2.5 rounded-sm bg-[#2A2A2A] border border-slate-800/10" />
+            <div className="w-2.5 h-2.5 rounded-sm bg-[#0E4429]" />
+            <div className="w-2.5 h-2.5 rounded-sm bg-[#26A641]" />
+            <div className="w-2.5 h-2.5 rounded-sm bg-[#39D353]" />
+            <div className="w-2.5 h-2.5 rounded-sm bg-[#4FFF6D]" />
+            <span>More</span>
+          </div>
+        )}
       </div>
+
+      {/* Floating custom dark tooltip */}
+      {hoveredDay && (
+        <div
+          className="fixed z-50 transform -translate-x-1/2 -translate-y-full bg-slate-900 border border-indigo-500/50 rounded-lg px-2.5 py-1.5 text-slate-200 text-5xs font-mono shadow-xl pointer-events-none"
+          style={{
+            left: `${tooltipPos.x}px`,
+            top: `${tooltipPos.y}px`
+          }}
+        >
+          <div className="font-semibold text-slate-400">
+            {new Date(hoveredDay.dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          </div>
+          <div className="mt-0.5 text-indigo-400 font-bold">
+            {hoveredDay.count} accepted submission{hoveredDay.count !== 1 ? "s" : ""}
+          </div>
+        </div>
+      )}
 
       {/* EDIT PROFILE MODAL */}
       {modalOpen && (
@@ -678,7 +1101,6 @@ const Profile = () => {
           majorTopics={majorTopics}
         />
       )}
-
     </div>
   );
 };

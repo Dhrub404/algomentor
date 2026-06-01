@@ -1,80 +1,120 @@
 const mongoose = require("mongoose");
-require("dotenv").config();
 const User = require("../models/User");
 const UserProgress = require("../models/UserProgress");
-const { getGenericRoadmap, getPersonalizedRoadmap } = require("../engines/roadmapEngine");
+const ProblemMapping = require("../models/ProblemMapping");
+require("dotenv").config();
+
+// Define RoadmapSnapshot schema & model locally for validation
+const RoadmapSnapshotSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  generatedAt: { type: Date, default: Date.now },
+  weeks: { type: Array, default: [] },
+  completedProblems: [{ type: String }],
+  totalWeakAreas: { type: Number, default: 0 },
+  totalRevisionNeeded: { type: Number, default: 0 }
+});
+const RoadmapSnapshot = mongoose.models.RoadmapSnapshot || mongoose.model("RoadmapSnapshot", RoadmapSnapshotSchema);
 
 const runTest = async () => {
   try {
     const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/algomentor";
-    console.log("Connecting to database:", mongoUri);
     await mongoose.connect(mongoUri);
-    console.log("Connected to database successfully!");
+    console.log("Connected successfully to DB!");
 
-    // Find any user
-    const user = await User.findOne({});
+    // 1. Fetch testuser
+    const user = await User.findOne({ username: "testuser" });
     if (!user) {
-      console.error("No user found in the database. Please register a user first.");
+      console.error("Test user 'testuser' not found. Please run seed script first.");
       process.exit(1);
     }
-    console.log(`Found user: ${user.username} (ID: ${user._id})`);
-    console.log(`Studied topics:`, user.studiedTopics);
+    const userId = user._id;
 
-    // Get progress
-    let progress = await UserProgress.findOne({ userId: user._id });
-    if (!progress) {
-      console.log("Creating default progress for user...");
-      progress = new UserProgress({
-        userId: user._id,
-        unlockedSubtopics: ["Stage 1 — Array Basics & Traversal", "Stage 2 — Prefix Sum"],
-        mastery: new Map([["Stage 1 — Array Basics & Traversal", 85]])
-      });
-      await progress.save();
+    // 2. Clear any old snapshots
+    await RoadmapSnapshot.deleteMany({ userId });
+    console.log("Cleared old roadmap snapshots for testuser.");
+
+    // 3. Find a problem to toggle
+    const problem = await ProblemMapping.findOne({ platform: "leetcode" });
+    if (!problem) {
+      console.error("No LeetCode problems found in DB to test with.");
+      process.exit(1);
     }
-    console.log(`User unlocked subtopics:`, progress.unlockedSubtopics);
+    const problemId = problem._id.toString();
+    console.log(`Using problem '${problem.title}' (ID: ${problemId}) for testing.`);
 
-    console.log("\n--- Testing getGenericRoadmap ---");
-    const genericRes = await getGenericRoadmap(user, progress);
-    console.log(`Generic roadmap has ${genericRes.length} milestones.`);
-    if (genericRes.length > 0) {
-      console.log("Milestone 1 Topic:", genericRes[0].topic);
-      console.log("Milestone 1 Status:", genericRes[0].status);
-      console.log("Milestone 1 Avg Mastery:", genericRes[0].avgMastery);
-      console.log("Milestone 1 Subtopics:", genericRes[0].subtopics.map(s => s.name));
+    // 4. Create an initial snapshot
+    const initialSnapshot = new RoadmapSnapshot({
+      userId,
+      generatedAt: new Date(),
+      weeks: [{ weekNumber: 1, title: "Week 1", items: [] }],
+      completedProblems: [],
+      totalWeakAreas: 2,
+      totalRevisionNeeded: 1
+    });
+    await initialSnapshot.save();
+    console.log("Created initial snapshot.");
+
+    // 5. Simulate Toggle Solved (Checkmark problem)
+    console.log("Simulating marking problem solved in snapshot...");
+    let snapshot = await RoadmapSnapshot.findOne({ userId }).sort({ generatedAt: -1 });
+    if (!snapshot.completedProblems.includes(problemId)) {
+      snapshot.completedProblems.push(problemId);
+      snapshot.markModified("completedProblems");
+      await snapshot.save();
     }
+    console.log("Current completedProblems array in snapshot:", snapshot.completedProblems);
 
-    console.log("\n--- Testing getPersonalizedRoadmap ---");
-    const personalRes = await getPersonalizedRoadmap(user, progress);
-    console.log("Generated At:", personalRes.generatedAt);
-    console.log("Total Weak Areas:", personalRes.totalWeakAreas);
-    console.log("Total Revision Needed:", personalRes.totalRevisionNeeded);
-    console.log("noPerformanceData:", personalRes.noPerformanceData);
-    console.log("noPlatformConnected:", personalRes.noPlatformConnected);
-    console.log("allMastered:", personalRes.allMastered);
-    console.log(`Number of Weeks in Schedule: ${personalRes.weeks.length}`);
-    if (personalRes.weeks.length > 0) {
-      const w1 = personalRes.weeks[0];
-      console.log(`Week 1 Title: ${w1.title}`);
-      console.log(`Week 1 Subtitle: ${w1.subtitle}`);
-      console.log(`Week 1 Items Count: ${w1.items.length}`);
-      if (w1.items.length > 0) {
-        const item1 = w1.items[0];
-        console.log(`- Subtopic: ${item1.subtopic} (Topic: ${item1.topic})`);
-        console.log(`  Priority Score: ${item1.priorityScore}`);
-        console.log(`  Reason: ${item1.reason}`);
-        console.log(`  Mastery Score: ${item1.masteryScore}`);
-        console.log(`  Recommended Problems Count: ${item1.recommendedProblems.length}`);
-        if (item1.recommendedProblems.length > 0) {
-          console.log(`  First recommended problem: ${item1.recommendedProblems[0].title} (${item1.recommendedProblems[0].platform})`);
-        }
-      }
+    // Verify it's checked
+    if (snapshot.completedProblems.includes(problemId)) {
+      console.log(">>> SUCCESS: Problem successfully marked in snapshot completedProblems!");
+    } else {
+      console.error(">>> FAILURE: Problem was not marked solved.");
     }
 
-    console.log("\nValidation completed successfully!");
-    process.exit(0);
-  } catch (error) {
-    console.error("Test execution failed:", error);
-    process.exit(1);
+    // 6. Simulate Toggle Unsolved (Uncheckmark problem)
+    console.log("Simulating unmarking problem solved in snapshot...");
+    snapshot = await RoadmapSnapshot.findOne({ userId }).sort({ generatedAt: -1 });
+    const idx = snapshot.completedProblems.indexOf(problemId);
+    if (idx > -1) {
+      snapshot.completedProblems.splice(idx, 1);
+      snapshot.markModified("completedProblems");
+      await snapshot.save();
+    }
+    console.log("Current completedProblems array in snapshot after toggle:", snapshot.completedProblems);
+
+    // Verify it's unchecked
+    if (!snapshot.completedProblems.includes(problemId)) {
+      console.log(">>> SUCCESS: Problem successfully unmarked in snapshot completedProblems!");
+    } else {
+      console.error(">>> FAILURE: Problem was not unmarked.");
+    }
+
+    // 7. Simulate manual regeneration (force=true)
+    console.log("Simulating manual regeneration (creating fresh snapshot and resetting checkmarks)...");
+    const freshSnapshot = new RoadmapSnapshot({
+      userId,
+      generatedAt: new Date(),
+      weeks: [{ weekNumber: 1, title: "Week 1 — Focus Areas", items: [] }],
+      completedProblems: [], // fresh start
+      totalWeakAreas: 3,
+      totalRevisionNeeded: 2
+    });
+    await freshSnapshot.save();
+
+    const latest = await RoadmapSnapshot.findOne({ userId }).sort({ generatedAt: -1 });
+    console.log("Latest snapshot date:", latest.generatedAt);
+    console.log("Latest completedProblems count (should be 0):", latest.completedProblems.length);
+
+    if (latest.completedProblems.length === 0) {
+      console.log(">>> SUCCESS: Fresh regenerated snapshot has reset completedProblems checkmarks!");
+    } else {
+      console.error(">>> FAILURE: Checked list was not reset on manual regeneration.");
+    }
+
+    await mongoose.disconnect();
+    console.log("DB disconnected.");
+  } catch (err) {
+    console.error("Test run error:", err);
   }
 };
 

@@ -1,21 +1,23 @@
-const express = require("express");
-const router = express.Router();
+const mongoose = require("mongoose");
 const User = require("../models/User");
 const UserProgress = require("../models/UserProgress");
 const TopicPerformance = require("../models/TopicPerformance");
-const protect = require("../middleware/authMiddleware");
 const { calculateLeaderboardScore } = require("../utils/scoreCalculator");
+require("dotenv").config();
 
-// @desc    Get leaderboard stats
-// @route   GET /api/leaderboard
-// @access  Private
-router.get("/", protect, async (req, res) => {
+const run = async () => {
   try {
+    const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/algomentor";
+    await mongoose.connect(mongoUri);
+    console.log("Connected successfully to DB!");
+
     const users = await User.find({}).select(
       "username name currentLevel codeforcesHandle leetcodeHandle codechefHandle gfgHandle hackerrankHandle codingNinjasHandle hackerEarthHandle branch batch college usn createdAt"
     );
     const progressList = await UserProgress.find({});
     const performances = await TopicPerformance.find({});
+
+    console.log(`Fetched ${users.length} users, ${progressList.length} progress profiles, ${performances.length} performances.`);
 
     const leaderboardData = users.map((user) => {
       const progress = progressList.find(
@@ -36,7 +38,6 @@ router.get("/", protect, async (req, res) => {
         }
       }
 
-      // Compute solved problems per platform for this user
       const solvedByPlatform = {
         leetcode: 0,
         codeforces: 0,
@@ -65,36 +66,23 @@ router.get("/", protect, async (req, res) => {
       });
 
       return {
-        _id: user._id,
         username: user.username,
-        name: user.name || "",
-        currentLevel: user.currentLevel,
-        codeforcesHandle: user.codeforcesHandle || "",
-        leetcodeHandle: user.leetcodeHandle || "",
-        codechefHandle: user.codechefHandle || "",
-        gfgHandle: user.gfgHandle || "",
-        hackerrankHandle: user.hackerrankHandle || "",
-        codingNinjasHandle: user.codingNinjasHandle || "",
-        hackerEarthHandle: user.hackerEarthHandle || "",
-        branch: user.branch || "",
-        batch: user.batch || "",
-        college: user.college || "",
         solvedCount,
         score: finalScore,
         finalScore,
-        streak,
-        createdAt: user.createdAt
+        streak
       };
     });
 
-    // Default sort by finalScore descending
     leaderboardData.sort((a, b) => b.finalScore - a.finalScore);
+    console.log("Leaderboard standings from DB:");
+    console.log(leaderboardData);
 
-    res.json(leaderboardData);
-  } catch (error) {
-    console.error("Leaderboard error:", error.message);
-    res.status(500).json({ message: "Server error" });
+    await mongoose.disconnect();
+    console.log("DB disconnected.");
+  } catch (err) {
+    console.error("Test failed:", err);
   }
-});
+};
 
-module.exports = router;
+run();

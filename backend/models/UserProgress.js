@@ -32,6 +32,22 @@ const UserProgressSchema = new mongoose.Schema({
   forcedLockedSubtopics: [{
     type: String
   }],
+  platformStats: {
+    type: Map,
+    of: mongoose.Schema.Types.Mixed,
+    default: {}
+  },
+  submissions: [{
+    platform: { type: String, required: true },
+    problemId: { type: String, required: true },
+    title: { type: String },
+    result: { type: String, enum: ["AC", "WA"], required: true },
+    timestamp: { type: Date, required: true }
+  }],
+  lastSynced: {
+    type: Date,
+    default: null
+  },
   lastActivityDate: { 
     type: Date, 
     default: Date.now 
