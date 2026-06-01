@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import useAuth from "../hooks/useAuth";
 import api from "../services/api";
+import axios from "axios";
 import {
   Compass, RefreshCw, Lock, Unlock, AlertTriangle, ExternalLink,
   ChevronDown, ChevronRight, BookOpen, CheckCircle2, Circle, Trophy
@@ -14,6 +15,16 @@ const TopicExplorer = () => {
   const [expandedTopicId, setExpandedTopicId] = useState(null);
   const [expandedSubtopicName, setExpandedSubtopicName] = useState(null);
   const [solvingIds, setSolvingIds] = useState(new Set());
+  const [localSolvedProblems, setLocalSolvedProblems] = useState([]);
+  const [toasts, setToasts] = useState([]);
+
+  const showToast = (message) => {
+    const id = Date.now() + Math.random().toString(36).substr(2, 9);
+    setToasts((prev) => [...prev, { id, message }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  };
 
   const fetchTopics = async () => {
     setLoading(true);
@@ -31,7 +42,13 @@ const TopicExplorer = () => {
     fetchTopics();
   }, []);
 
-  const solvedSet = new Set((progress?.solvedProblems || []).map((id) => id.toString()));
+  useEffect(() => {
+    if (progress?.solvedProblems) {
+      setLocalSolvedProblems(progress.solvedProblems.map((id) => id.toString()));
+    }
+  }, [progress?.solvedProblems]);
+
+  const solvedSet = new Set(localSolvedProblems);
 
   // Calculate statistics for each topic
   const topicStats = topics.map((topic) => {
@@ -112,29 +129,49 @@ const TopicExplorer = () => {
     }, 120);
   };
 
-  const handleMarkSolved = async (problemId) => {
-    if (solvingIds.has(problemId)) return;
-    setSolvingIds((prev) => {
-      const next = new Set(prev);
-      next.add(problemId);
-      return next;
+  const handleToggleSolved = async (problemId, subName, topicName) => {
+    const isCurrentlySolved = solvedSet.has(problemId.toString());
+
+    // 1. Optimistic Update: Immediately toggle UI
+    setLocalSolvedProblems((prev) => {
+      if (isCurrentlySolved) {
+        return prev.filter((id) => id !== problemId.toString());
+      } else {
+        return [...prev, problemId.toString()];
+      }
     });
 
     try {
-      await api.markProblemSolved(problemId);
+      // 2. Call POST /api/topics/toggle-problem
+      const res = await axios.post("http://localhost:5000/api/topics/toggle-problem", {
+        userId: progress?.userId,
+        problemId,
+        subtopic: subName,
+        topic: topicName
+      });
+
+      // Refetch user data and all topics to make sure other derived metrics sync up
       await refetchUser();
-      // Reload topics to refresh problem checklist data and solved state
       const updatedTopics = await api.getAllTopics();
       setTopics(updatedTopics);
+
+      // 3. Show toast if response has newlyUnlocked
+      if (res.data?.newlyUnlocked && res.data.newlyUnlocked.length > 0) {
+        res.data.newlyUnlocked.forEach((unlockedSub) => {
+          showToast(`🔓 ${unlockedSub} unlocked!`);
+        });
+      }
     } catch (err) {
-      console.error("Error marking problem solved:", err);
-      alert("Failed to mark problem solved.");
-    } finally {
-      setSolvingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(problemId);
-        return next;
+      console.error("Error toggling problem solved:", err);
+      // Revert optimistic update if API call fails
+      setLocalSolvedProblems((prev) => {
+        if (isCurrentlySolved) {
+          return [...prev, problemId.toString()];
+        } else {
+          return prev.filter((id) => id !== problemId.toString());
+        }
       });
+      showToast("❌ Failed to update problem state.");
     }
   };
 
@@ -424,10 +461,19 @@ const TopicExplorer = () => {
                                   {stageProblems.map((prob) => {
                                     const isSolved = solvedSet.has(prob._id.toString());
                                     const isSolving = solvingIds.has(prob._id.toString());
-                                    const platformColor =
-                                      prob.platform === "codeforces"
-                                        ? "text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/30 bg-rose-50 dark:bg-rose-950/20"
-                                        : "text-amber-600 dark:text-amber-500 border-amber-200 dark:border-amber-900/30 bg-amber-50 dark:bg-amber-950/20";
+                                    
+                                    let platformLabel = "LC";
+                                    let platformColor = "text-orange-650 dark:text-orange-400 border-orange-200 dark:border-orange-900/30 bg-orange-50 dark:bg-orange-950/20";
+                                    if (prob.platform === "gfg") {
+                                      platformLabel = "GFG";
+                                      platformColor = "text-emerald-600 dark:text-emerald-455 border-emerald-200 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-950/20";
+                                    } else if (prob.platform === "codeforces") {
+                                      platformLabel = "CF";
+                                      platformColor = "text-blue-650 dark:text-blue-400 border-blue-200 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-950/20";
+                                    } else {
+                                      platformLabel = (prob.platform || "").toUpperCase();
+                                      platformColor = "text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/20";
+                                    }
 
                                     return (
                                       <div
@@ -440,22 +486,17 @@ const TopicExplorer = () => {
                                       >
                                         <div className="flex items-center gap-3 min-w-0 pr-2">
                                           <button
-                                            onClick={() => !isSolved && handleMarkSolved(prob._id)}
-                                            disabled={isSolved || isSolving}
-                                            className={`focus:outline-none shrink-0 ${
+                                            onClick={() => handleToggleSolved(prob._id, sub.name, topic.name)}
+                                            className={`focus:outline-none shrink-0 transition-colors ${
                                               isSolved
-                                                ? "text-emerald-500 cursor-default"
-                                                : isSolving
-                                                ? "text-indigo-600 dark:text-indigo-400 animate-spin"
+                                                ? "text-emerald-500 hover:text-emerald-600"
                                                 : "text-slate-400 hover:text-indigo-650 dark:hover:text-indigo-400"
                                             }`}
                                           >
                                             {isSolved ? (
-                                              <CheckCircle2 className="w-4.5 h-4.5 fill-emerald-500/10" />
-                                            ) : isSolving ? (
-                                              <RefreshCw className="w-4.5 h-4.5" />
+                                              <CheckCircle2 className="w-4.5 h-4.5 text-white fill-emerald-500" />
                                             ) : (
-                                              <Circle className="w-4.5 h-4.5" />
+                                              <Circle className="w-4.5 h-4.5 text-slate-400 hover:text-indigo-500" />
                                             )}
                                           </button>
 
@@ -471,7 +512,7 @@ const TopicExplorer = () => {
                                             </a>
                                             <div className="flex items-center gap-1.5">
                                               <span className={`text-[9px] uppercase font-bold px-1.5 py-0.2 rounded border ${platformColor}`}>
-                                                {prob.platform}
+                                                {platformLabel}
                                               </span>
                                               <span className={`text-[9px] uppercase font-bold px-1.5 py-0.2 rounded ${getDifficultyColor(prob.difficulty)}`}>
                                                 {prob.difficulty}
@@ -544,6 +585,18 @@ const TopicExplorer = () => {
           </div>
         </div>
       )}
+
+      {/* Floating Toast Notification Container */}
+      <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
+        {toasts.map((t) => (
+          <div
+            key={t.id}
+            className="bg-slate-900/95 dark:bg-slate-950/95 text-white text-xs font-semibold py-3 px-5 rounded-lg shadow-lg border border-slate-700/50 dark:border-slate-850 flex items-center gap-2 animate-bounce-short pointer-events-auto"
+          >
+            {t.message}
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

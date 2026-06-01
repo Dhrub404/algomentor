@@ -3,6 +3,7 @@ import axios from "axios";
 import useAuth from "../hooks/useAuth";
 import WeaknessChart from "../components/WeaknessChart";
 import api from "../services/api";
+import { getDifficultyColor } from "../utils/helpers";
 import {
   Compass,
   Trophy,
@@ -140,8 +141,8 @@ const Dashboard = () => {
   }
 
   // Count strong areas (masteryScore >= 70) and weak ones (masteryScore < 40)
-  const strongAreas = performances.filter((p) => p.masteryScore >= 70);
-  const weakAreas = performances.filter((p) => p.masteryScore < 40 && p.totalAttempted > 0);
+  const strongAreas = (performances || []).filter((p) => p.masteryScore >= 70);
+  const weakAreas = (performances || []).filter((p) => p.masteryScore < 40 && p.totalAttempted > 0);
 
   // Get progress bar color based on weakness Score (Part 4)
   const getWeaknessBarColor = (weaknessScore) => {
@@ -419,9 +420,9 @@ const Dashboard = () => {
                 </h3>
               </div>
               
-              {!loadingDaily && dailyData.problems && (
+              {!loadingDaily && dailyData && dailyData.problems && (
                 <span className="text-[9px] font-mono font-bold tracking-wider bg-indigo-50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 border border-indigo-200/40 dark:border-slate-850 px-2 py-0.5 rounded-md">
-                  {dailyData.problems.filter(p => solvedSet.has(p._id.toString())).length} / {dailyData.problems.length} Done
+                  {(dailyData.problems || []).filter(p => p?._id && solvedSet.has(p._id.toString())).length} / {dailyData.problems.length} Done
                 </span>
               )}
             </div>
@@ -439,8 +440,8 @@ const Dashboard = () => {
 
                 <div className="flex flex-col gap-3">
                   {dailyData.problems.map((problem) => {
-                    const isSolved = solvedSet.has(problem._id.toString());
-                    const isCompleting = completingIds.has(problem._id.toString());
+                    const isSolved = problem?._id ? solvedSet.has(problem._id.toString()) : false;
+                    const isCompleting = problem?._id ? completingIds.has(problem._id.toString()) : false;
 
                     return (
                       <div
