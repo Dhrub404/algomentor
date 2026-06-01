@@ -1,14 +1,9 @@
-/**
- * Weakness Engine
- * Calculates weaknessScore and masteryScore.
- * 
- * Rules:
- * - weaknessScore = (wrongAttempts + lowAccuracy + lowRecentActivity) -> 0 to 100
- * - masteryScore = (accuracy * 0.4) + (consistency * 0.3) + (difficultyWeight * 0.3)
- * - Only analyze topics the user has marked as studied.
- * - Never show weakness for locked/unstudied topics.
- */
+const TopicPerformance = require("../models/TopicPerformance");
+const UserProgress = require("../models/UserProgress");
 
+/**
+ * Calculate performance scores for a subtopic performance record
+ */
 const calculatePerformanceScores = (perfData, subtopicDiff) => {
   const { totalAttempted = 0, totalSolved = 0, wrongAttempts = 0, lastPracticed } = perfData;
 
@@ -32,18 +27,28 @@ const calculatePerformanceScores = (perfData, subtopicDiff) => {
   const masteryScore = (accuracy * 0.4) + (consistencyScore * 0.3) + (difficultyWeight * 0.3);
 
   // 5. Weakness Score (0 to 100)
-  // wrongAttempts weight: max 30 points (each wrong attempt adds 5 points)
   const wrongAttemptsPoints = Math.min(wrongAttempts * 5, 30);
-  
-  // lowAccuracy weight: max 40 points (0% accuracy = 40 points, 100% accuracy = 0 points)
   const lowAccuracyPoints = (1 - (accuracy / 100)) * 40;
-
-  // lowRecentActivity weight: max 30 points
   const lowRecentActivityPoints = lastPracticed 
     ? Math.min(daysSinceLastPracticed * 2, 30) 
     : 30;
 
   const weaknessScore = Math.min(wrongAttemptsPoints + lowAccuracyPoints + lowRecentActivityPoints, 100);
+
+  // Asynchronously trigger lastEngineRun update to track that calculations took place
+  if (perfData && perfData.userId) {
+    const userId = perfData.userId;
+    setImmediate(async () => {
+      try {
+        await UserProgress.updateOne(
+          { userId },
+          { $set: { lastEngineRun: new Date() } }
+        );
+      } catch (err) {
+        console.error("Error setting lastEngineRun in calculatePerformanceScores:", err.message);
+      }
+    });
+  }
 
   return {
     accuracy: Math.round(accuracy),
@@ -54,4 +59,36 @@ const calculatePerformanceScores = (perfData, subtopicDiff) => {
   };
 };
 
-module.exports = { calculatePerformanceScores };
+/**
+ * Retrieves the top weak subtopics for the given user:
+ * weaknessScore > 50 OR masteryScore < 40
+ */
+const getWeakSubtopics = async (userId) => {
+  if (!userId) return [];
+
+  // Fetch all TopicPerformance records for this user
+  const performances = await TopicPerformance.find({ userId });
+
+  // Filter only subtopics where weaknessScore > 50 OR masteryScore < 40
+  const weakPerformances = performances.filter(
+    (p) => (p.weaknessScore > 50 || p.masteryScore < 40)
+  );
+
+  // Sort by weaknessScore descending
+  weakPerformances.sort((a, b) => b.weaknessScore - a.weaknessScore);
+
+  return weakPerformances.map((p) => ({
+    subtopic: p.subtopic,
+    topic: p.topic,
+    masteryScore: p.masteryScore || 0,
+    weaknessScore: p.weaknessScore || 0,
+    accuracy: p.accuracy || 0,
+    lastPracticed: p.lastPracticed,
+    revisionNeeded: p.revisionNeeded || false
+  }));
+};
+
+module.exports = {
+  calculatePerformanceScores,
+  getWeakSubtopics
+};

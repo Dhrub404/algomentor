@@ -31,11 +31,11 @@ const AdminDashboard = () => {
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col gap-6">
+    <div className="flex-1 flex flex-col gap-6 text-left">
       {/* Welcome */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-space font-extrabold text-2xl text-white tracking-tight my-0">
+          <h2 className="font-semibold text-2xl text-white tracking-tight my-0">
             System Operations Dashboard
           </h2>
           <p className="text-xs text-slate-400 mt-1">
@@ -54,7 +54,7 @@ const AdminDashboard = () => {
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center py-20">
-          <RefreshCw className="w-8 h-8 text-rose-500 animate-spin" />
+          <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin" />
         </div>
       ) : (
         <div className="flex flex-col gap-8">
@@ -72,7 +72,7 @@ const AdminDashboard = () => {
               value={stats.totalProblems}
               icon={Code2}
               description="LeetCode & Codeforces mappings"
-              color="rose"
+              color="indigo"
             />
             <AdminStatCard
               title="Core Topics"
@@ -93,28 +93,28 @@ const AdminDashboard = () => {
               value={stats.activeUsers}
               icon={Radio}
               description="Users active within a week"
-              color="rose"
+              color="indigo"
             />
           </div>
 
           {/* Quick Actions */}
           <div className="flex flex-col gap-4">
-            <h3 className="font-space font-bold text-sm text-slate-300 m-0">Quick Action Modules</h3>
+            <h3 className="font-semibold text-sm text-slate-350 m-0">Quick Action Modules</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {[
                 { title: "User Controls", desc: "View rosters, edit masteries, bypass thresholds, and reset progress profiles.", path: "/admin/users", border: "hover:border-indigo-500/30" },
                 { title: "DSA Curriculum", desc: "Modify thresholds, expand topics, and edit prerequisite configurations.", path: "/admin/topics", border: "hover:border-amber-500/30" },
-                { title: "Problem Mappings", desc: "Create, edit, and categorize competitive programming problem mappings.", path: "/admin/problems", border: "hover:border-rose-500/30" },
+                { title: "Problem Mappings", desc: "Create, edit, and categorize competitive programming problem mappings.", path: "/admin/problems", border: "hover:border-indigo-500/30" },
                 { title: "System Variables", desc: "Configure global variables like daily sizes and decay periods.", path: "/admin/settings", border: "hover:border-slate-500/30" }
               ].map((item) => (
                 <Link
                   key={item.title}
                   to={item.path}
-                  className={`p-5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-4 transition-all duration-300 ${item.border}`}
+                  className={`p-5 rounded-xl bg-slate-900 border border-slate-800 flex flex-col justify-between gap-4 transition-all duration-300 ${item.border}`}
                 >
                   <div>
-                    <h4 className="font-space font-bold text-xs text-slate-200 my-0">{item.title}</h4>
+                    <h4 className="font-semibold text-xs text-slate-200 my-0">{item.title}</h4>
                     <p className="text-4xs text-slate-500 leading-normal mt-1">{item.desc}</p>
                   </div>
                   <span className="text-5xs uppercase tracking-widest text-slate-400 font-bold flex items-center gap-1.5 hover:text-slate-200">

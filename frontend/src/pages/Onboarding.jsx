@@ -7,7 +7,12 @@ const Onboarding = () => {
   const [step, setStep] = useState(1);
   const [handles, setHandles] = useState({
     codeforces: "",
-    leetcode: ""
+    leetcode: "",
+    codechef: "",
+    geeksforgeeks: "",
+    hackerrank: "",
+    codingninjas: "",
+    hackerearth: ""
   });
   const [level, setLevel] = useState("beginner");
   const [selectedTopics, setSelectedTopics] = useState([]);
@@ -16,14 +21,183 @@ const Onboarding = () => {
   const navigate = useNavigate();
 
   const majorTopics = [
-    { name: "Arrays", subtopics: ["Basics", "Two Pointers", "Sliding Window"], desc: "Subarrays, window sliding, pointer traversal" },
-    { name: "Binary Search", subtopics: ["One-D Arrays", "On Answer"], desc: "Divide and conquer search, BS on answer space" },
-    { name: "Strings", subtopics: ["Basic Operations", "Pattern Matching"], desc: "Hashing, string match, string manipulation" },
-    { name: "Linked List", subtopics: ["Singly LinkedList", "Double LinkedList & Loops"], desc: "Pointers, singly/doubly LL, Floyd cycle detection" },
-    { name: "Stacks/Queues", subtopics: ["Linear Structures", "Monotonic Stack"], desc: "Stack, queue, monotonic stack elements" },
-    { name: "Trees", subtopics: ["Binary Tree Traversals", "BST Operations"], desc: "DFS/BFS tree traversals, search tree node mutations" },
-    { name: "Graphs", subtopics: ["DFS/BFS Basics", "Shortest Paths"], desc: "Traversal, Dijkstra shortest paths, graph modelling" },
-    { name: "DP", subtopics: ["One-D DP", "Grid DP"], desc: "Memoization, tabulation, grid-based optimal subpaths" }
+    {
+      name: "Arrays",
+      subtopics: [
+        "Stage 1 — Array Basics & Traversal",
+        "Stage 2 — Prefix Sum",
+        "Stage 3 — Difference Array",
+        "Stage 4 — Kadane's Algorithm",
+        "Stage 5 — Sliding Window Fixed Size",
+        "Stage 6 — Sliding Window Variable Size",
+        "Stage 7 — Two Pointers",
+        "Stage 8 — Fast & Slow Pointers",
+        "Stage 9 — Three Pointers & K-Sum",
+        "Stage 10 — Frequency Count & Hashing",
+        "Stage 11 — Sorting Techniques",
+        "Stage 12 — Binary Search on Arrays"
+      ],
+      desc: "Prefix sums, Kadane's, two pointers, sliding windows & basic search"
+    },
+    {
+      name: "Strings",
+      subtopics: [
+        "Stage 1 — String Basics",
+        "Stage 2 — String Manipulation",
+        "Stage 3 — Pattern Matching (KMP/Z)",
+        "Stage 4 — Anagrams & Frequency Maps",
+        "Stage 5 — Palindrome Problems",
+        "Stage 6 — Sliding Window on Strings"
+      ],
+      desc: "Manipulations, KMP/Z matching, anagram frequency maps & palindromes"
+    },
+    {
+      name: "Hashing",
+      subtopics: [
+        "Stage 1 — HashMap Basics",
+        "Stage 2 — Frequency & Count Problems",
+        "Stage 3 — Two Sum Variants",
+        "Stage 4 — Subarray with Given Sum",
+        "Stage 5 — Longest Subarray Problems"
+      ],
+      desc: "HashMaps, frequency counts, Two Sum variants, & sum subarrays"
+    },
+    {
+      name: "Binary Search",
+      subtopics: [
+        "Stage 1 — Classic Binary Search",
+        "Stage 2 — Binary Search on Answer",
+        "Stage 3 — Search in Rotated Array",
+        "Stage 4 — BS on 2D Matrix",
+        "Stage 5 — Aggressive Problems (Minimize Max)"
+      ],
+      desc: "Sorted ranges search, BS on answer, rotated list & 2D binary search"
+    },
+    {
+      name: "Recursion & Backtracking",
+      subtopics: [
+        "Stage 1 — Recursion Basics",
+        "Stage 2 — Subset & Subsequence Generation",
+        "Stage 3 — Permutations",
+        "Stage 4 — Backtracking Basics",
+        "Stage 5 — N-Queens & Sudoku Solver",
+        "Stage 6 — Word Search & Maze Problems"
+      ],
+      desc: "Recursive stack traces, subsets, permutations, & sudoku solver mazes"
+    },
+    {
+      name: "Linked List",
+      subtopics: [
+        "Stage 1 — LL Basics & Traversal",
+        "Stage 2 — Reversal Problems",
+        "Stage 3 — Fast & Slow Pointer on LL",
+        "Stage 4 — Merge & Sort LL",
+        "Stage 5 — Cycle Detection"
+      ],
+      desc: "Singly & doubly pointers, reversals, slow-fast cycle detection, & merges"
+    },
+    {
+      name: "Stacks & Queues",
+      subtopics: [
+        "Stage 1 — Stack Basics",
+        "Stage 2 — Monotonic Stack",
+        "Stage 3 — Queue & Deque Basics",
+        "Stage 4 — Sliding Window Maximum",
+        "Stage 5 — Stack on Strings"
+      ],
+      desc: "LIFO/FIFO buffers, monotonic stacks, deques & window max indicators"
+    },
+    {
+      name: "Trees",
+      subtopics: [
+        "Stage 1 — Tree Traversals (BFS/DFS)",
+        "Stage 2 — Tree Height & Diameter",
+        "Stage 3 — Binary Search Tree",
+        "Stage 4 — Lowest Common Ancestor",
+        "Stage 5 — Tree DP Problems",
+        "Stage 6 — Views & Boundary Traversal"
+      ],
+      desc: "Hierarchical nodes traversal, BST properties, LCA, & views"
+    },
+    {
+      name: "Graphs",
+      subtopics: [
+        "Stage 1 — Graph Representation",
+        "Stage 2 — BFS & DFS",
+        "Stage 3 — Cycle Detection",
+        "Stage 4 — Topological Sort",
+        "Stage 5 — Shortest Path (Dijkstra/BFS)",
+        "Stage 6 — Minimum Spanning Tree",
+        "Stage 7 — Disjoint Set Union (DSU)",
+        "Stage 8 — Strongly Connected Components"
+      ],
+      desc: "Adjacency lists, DFS/BFS traversals, Dijkstra, DSU disjoint union & MST"
+    },
+    {
+      name: "Dynamic Programming",
+      subtopics: [
+        "Stage 1 — DP Basics & Memoization",
+        "Stage 2 — 1D DP (Fibonacci, Climbing)",
+        "Stage 3 — 0/1 Knapsack",
+        "Stage 4 — Unbounded Knapsack",
+        "Stage 5 — Longest Common Subsequence",
+        "Stage 6 — Longest Increasing Subsequence",
+        "Stage 7 — Matrix Chain / Interval DP",
+        "Stage 8 — DP on Grids",
+        "Stage 9 — DP on Trees",
+        "Stage 10 — Bitmask DP"
+      ],
+      desc: "Optimal substructures, 1D DP, Knapsacks, subsequence matching, & grid DP"
+    },
+    {
+      name: "Greedy",
+      subtopics: [
+        "Stage 1 — Greedy Basics",
+        "Stage 2 — Interval Scheduling",
+        "Stage 3 — Activity Selection",
+        "Stage 4 — Huffman & Fractional Knapsack"
+      ],
+      desc: "Local sorting metrics, scheduling tasks, & fractional knapsacks"
+    },
+    {
+      name: "Bit Manipulation",
+      subtopics: [
+        "Stage 1 — Bit Basics",
+        "Stage 2 — XOR Tricks",
+        "Stage 3 — Bit Masking",
+        "Stage 4 — Power of 2 Problems"
+      ],
+      desc: "Binary shift logic, XOR tricks, masks, & power indicators"
+    },
+    {
+      name: "Math & Number Theory",
+      subtopics: [
+        "Stage 1 — Number Logic",
+        "Stage 2 — Prime & Sieve",
+        "Stage 3 — GCD, LCM, Modular Arithmetic",
+        "Stage 4 — Combinatorics Basics"
+      ],
+      desc: "Eratosthenes primes sieve, Euclidean GCD, modular maths, & combinations"
+    },
+    {
+      name: "Tries",
+      subtopics: [
+        "Stage 1 — Trie Basics",
+        "Stage 2 — Word Search & Prefix Problems",
+        "Stage 3 — XOR Trie"
+      ],
+      desc: "Prefix tries, autocomplete lookups, & maximum XOR calculations"
+    },
+    {
+      name: "Heaps & Priority Queue",
+      subtopics: [
+        "Stage 1 — Heap Basics",
+        "Stage 2 — Kth Largest/Smallest",
+        "Stage 3 — Merge K Sorted Lists",
+        "Stage 4 — Sliding Window with Heap"
+      ],
+      desc: "Min/Max heaps, Kth element query, list merging, & heap-based windows"
+    }
   ];
 
   const handleToggleTopic = (topicName) => {
@@ -63,6 +237,11 @@ const Onboarding = () => {
         currentLevel: level,
         codeforcesHandle: handles.codeforces.trim(),
         leetcodeHandle: handles.leetcode.trim(),
+        codechefHandle: handles.codechef.trim(),
+        gfgHandle: handles.geeksforgeeks.trim(),
+        hackerrankHandle: handles.hackerrank.trim(),
+        codingNinjasHandle: handles.codingninjas.trim(),
+        hackerEarthHandle: handles.hackerearth.trim(),
         studiedTopics: studiedSubtopics
       });
       navigate("/dashboard");
@@ -114,21 +293,8 @@ const Onboarding = () => {
               Connect LeetCode and Codeforces to sync progress and analyze subtopic details. (You can skip these and link them later in settings).
             </p>
 
-            <div className="flex flex-col gap-6">
-              <div className="flex flex-col gap-2">
-                <label className="text-4xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">
-                  Codeforces Handle
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Tourist"
-                  value={handles.codeforces}
-                  onChange={(e) => setHandles({ ...handles, codeforces: e.target.value })}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-250 dark:border-slate-700 rounded-lg py-2.5 px-4 text-slate-900 dark:text-slate-100 text-xs focus:border-indigo-500 focus:outline-none placeholder-slate-400 transition-colors"
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
                 <label className="text-4xs font-bold uppercase tracking-wider text-amber-500">
                   LeetCode Username
                 </label>
@@ -137,7 +303,85 @@ const Onboarding = () => {
                   placeholder="e.g. lc_master"
                   value={handles.leetcode}
                   onChange={(e) => setHandles({ ...handles, leetcode: e.target.value })}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-250 dark:border-slate-700 rounded-lg py-2.5 px-4 text-slate-900 dark:text-slate-100 text-xs focus:border-indigo-500 focus:outline-none placeholder-slate-400 transition-colors"
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 text-xs focus:border-indigo-500 focus:outline-none placeholder-slate-450 transition-colors"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-4xs font-bold uppercase tracking-wider text-rose-500">
+                  Codeforces Handle
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Tourist"
+                  value={handles.codeforces}
+                  onChange={(e) => setHandles({ ...handles, codeforces: e.target.value })}
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 text-xs focus:border-indigo-500 focus:outline-none placeholder-slate-450 transition-colors"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-4xs font-bold uppercase tracking-wider text-amber-700">
+                  CodeChef Handle
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. chef_user"
+                  value={handles.codechef}
+                  onChange={(e) => setHandles({ ...handles, codechef: e.target.value })}
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 text-xs focus:border-indigo-500 focus:outline-none placeholder-slate-450 transition-colors"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-4xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-450">
+                  GeeksforGeeks Handle
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. gfg_profile"
+                  value={handles.geeksforgeeks}
+                  onChange={(e) => setHandles({ ...handles, geeksforgeeks: e.target.value })}
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 text-xs focus:border-indigo-500 focus:outline-none placeholder-slate-450 transition-colors"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-4xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400">
+                  HackerRank Username
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. hr_coder"
+                  value={handles.hackerrank}
+                  onChange={(e) => setHandles({ ...handles, hackerrank: e.target.value })}
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 text-xs focus:border-indigo-500 focus:outline-none placeholder-slate-450 transition-colors"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-4xs font-bold uppercase tracking-wider text-indigo-500">
+                  Coding Ninjas Username
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. ninja_360"
+                  value={handles.codingninjas}
+                  onChange={(e) => setHandles({ ...handles, codingninjas: e.target.value })}
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 text-xs focus:border-indigo-500 focus:outline-none placeholder-slate-450 transition-colors"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <label className="text-4xs font-bold uppercase tracking-wider text-purple-500">
+                  HackerEarth Username
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. earth_dev"
+                  value={handles.hackerearth}
+                  onChange={(e) => setHandles({ ...handles, hackerearth: e.target.value })}
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 text-xs focus:border-indigo-500 focus:outline-none placeholder-slate-450 transition-colors"
                 />
               </div>
             </div>

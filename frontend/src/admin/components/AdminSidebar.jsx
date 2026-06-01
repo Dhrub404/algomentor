@@ -21,7 +21,7 @@ const AdminSidebar = () => {
   ];
 
   return (
-    <aside className="w-64 min-h-[calc(100vh-4rem)] border-r border-slate-900 bg-slate-900/35 flex flex-col justify-between py-6 shrink-0">
+    <aside className="w-64 min-h-[calc(100vh-4rem)] border-r border-slate-800 bg-slate-900/10 flex flex-col justify-between py-6 shrink-0">
       <div className="flex flex-col gap-1 px-4">
         {adminNavItems.map((item) => {
           const Icon = item.icon;
@@ -32,7 +32,7 @@ const AdminSidebar = () => {
               className={({ isActive }) =>
                 `flex items-center gap-3.5 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
                   isActive
-                    ? "bg-rose-500/10 text-rose-400 border-l-4 border-rose-500 shadow-sm"
+                    ? "bg-indigo-500/10 text-indigo-400 border-l-4 border-indigo-500 shadow-sm"
                     : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border-l-4 border-transparent"
                 }`
               }
@@ -46,7 +46,7 @@ const AdminSidebar = () => {
 
       <div className="px-6 text-3xs text-slate-600 flex flex-col gap-1 font-mono">
         <div className="flex items-center gap-1">
-          <ShieldCheck className="w-3.5 h-3.5 text-rose-500/50" />
+          <ShieldCheck className="w-3.5 h-3.5 text-indigo-500/50" />
           <span>Security Level: root</span>
         </div>
         <span>AlgoMentor Admin Panel</span>

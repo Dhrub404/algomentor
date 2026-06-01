@@ -38,6 +38,14 @@ const UserSchema = new mongoose.Schema({
     type: String, 
     default: "" 
   },
+  codingNinjasHandle: { 
+    type: String, 
+    default: "" 
+  },
+  hackerEarthHandle: { 
+    type: String, 
+    default: "" 
+  },
   name: {
     type: String,
     default: ""

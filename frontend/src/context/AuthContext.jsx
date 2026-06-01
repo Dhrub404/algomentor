@@ -99,12 +99,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const connectHandles = async (cfHandle, lcHandle) => {
+  const connectHandles = async (handlesObj) => {
     try {
-      const response = await axios.post("http://localhost:5000/api/user/connect-platform", {
-        codeforcesHandle: cfHandle,
-        leetcodeHandle: lcHandle
-      });
+      const response = await axios.post("http://localhost:5000/api/user/connect-platform", handlesObj);
       setUser({
         user: response.data.user,
         progress: response.data.progress,

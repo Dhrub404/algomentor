@@ -6,6 +6,13 @@ const Topic = require("../models/Topic");
 
 const { getCodeforcesData } = require("../platforms/codeforces");
 const { getLeetCodeData } = require("../platforms/leetcode");
+const {
+  getCodeChefData,
+  getGeeksForGeeksData,
+  getHackerRankData,
+  getCodingNinjasData,
+  getHackerEarthData
+} = require("../platforms/simulatedPlatforms");
 const normalizeData = require("../utils/normalizeData");
 
 const { calculatePerformanceScores } = require("../engines/weaknessEngine");
@@ -15,21 +22,36 @@ const { evaluateUnlocks } = require("../engines/unlockEngine");
 const syncPlatformData = async (user) => {
   const cfHandle = user.codeforcesHandle;
   const lcHandle = user.leetcodeHandle;
+  const ccHandle = user.codechefHandle;
+  const gfgHandle = user.gfgHandle;
+  const hrHandle = user.hackerrankHandle;
+  const cnHandle = user.codingNinjasHandle;
+  const heHandle = user.hackerEarthHandle;
 
-  if (!cfHandle && !lcHandle) {
+  if (!cfHandle && !lcHandle && !ccHandle && !gfgHandle && !hrHandle && !cnHandle && !heHandle) {
     return { message: "No handles connected" };
   }
 
   try {
     // 1. Fetch raw data from connected platforms in parallel
-    const [cfRaw, lcRaw] = await Promise.all([
+    const [cfRaw, lcRaw, ccRaw, gfgRaw, hrRaw, cnRaw, heRaw] = await Promise.all([
       cfHandle ? getCodeforcesData(cfHandle) : Promise.resolve(null),
-      lcHandle ? getLeetCodeData(lcHandle) : Promise.resolve(null)
+      lcHandle ? getLeetCodeData(lcHandle) : Promise.resolve(null),
+      ccHandle ? getCodeChefData(ccHandle) : Promise.resolve(null),
+      gfgHandle ? getGeeksForGeeksData(gfgHandle) : Promise.resolve(null),
+      hrHandle ? getHackerRankData(hrHandle) : Promise.resolve(null),
+      cnHandle ? getCodingNinjasData(cnHandle) : Promise.resolve(null),
+      heHandle ? getHackerEarthData(heHandle) : Promise.resolve(null)
     ]);
 
     // 2. Normalize data
     const cfData = cfRaw ? normalizeData("codeforces", cfRaw) : null;
     const lcData = lcRaw ? normalizeData("leetcode", lcRaw) : null;
+    const ccData = ccRaw;
+    const gfgData = gfgRaw;
+    const hrData = hrRaw;
+    const cnData = cnRaw;
+    const heData = heRaw;
 
     // 3. Aggregate all normalized submissions
     let allSubmissions = [];
@@ -42,6 +64,26 @@ const syncPlatformData = async (user) => {
     if (lcData) {
       allSubmissions = allSubmissions.concat(lcData.submissions);
       solvedIds = solvedIds.concat(lcData.solvedProblemIds);
+    }
+    if (ccData && ccData.submissions) {
+      allSubmissions = allSubmissions.concat(ccData.submissions);
+      solvedIds = solvedIds.concat(ccData.submissions.filter((s) => s.result === "AC").map((s) => s.problemId));
+    }
+    if (gfgData && gfgData.submissions) {
+      allSubmissions = allSubmissions.concat(gfgData.submissions);
+      solvedIds = solvedIds.concat(gfgData.submissions.filter((s) => s.result === "AC").map((s) => s.problemId));
+    }
+    if (hrData && hrData.submissions) {
+      allSubmissions = allSubmissions.concat(hrData.submissions);
+      solvedIds = solvedIds.concat(hrData.submissions.filter((s) => s.result === "AC").map((s) => s.problemId));
+    }
+    if (cnData && cnData.submissions) {
+      allSubmissions = allSubmissions.concat(cnData.submissions);
+      solvedIds = solvedIds.concat(cnData.submissions.filter((s) => s.result === "AC").map((s) => s.problemId));
+    }
+    if (heData && heData.submissions) {
+      allSubmissions = allSubmissions.concat(heData.submissions);
+      solvedIds = solvedIds.concat(heData.submissions.filter((s) => s.result === "AC").map((s) => s.problemId));
     }
 
     if (allSubmissions.length === 0) {
@@ -63,7 +105,6 @@ const syncPlatformData = async (user) => {
     });
 
     // 4. Compute statistics grouped by subtopic
-    // { subtopicName: { topic, problems: { problemId: { solved: boolean, attempts: number, wrongAttempts: number, lastTime: Date } } } }
     const subtopicStats = {};
 
     allSubmissions.forEach((sub) => {
@@ -170,7 +211,7 @@ const syncPlatformData = async (user) => {
         const platform = mappingMap[pid]?.platform;
         if (platform) platformsUsed.add(platform);
       });
-      performance.platform = platformsUsed.size > 1 ? "combined" : platformsUsed.has("leetcode") ? "leetcode" : "codeforces";
+      performance.platform = platformsUsed.size > 1 ? "combined" : (platformsUsed.values().next().value || "combined");
 
       // Calculate weakness and mastery scores
       const difficulty = subtopicDifficultyMap[subtopicName] || "easy";
@@ -226,6 +267,40 @@ const getUserProfile = async (req, res) => {
     const progress = await UserProgress.findOne({ userId: user._id });
     const performances = await TopicPerformance.find({ userId: user._id });
 
+    // Dynamic self-healing logic: Evaluate unlocks on page load to keep unlocked lists healthy
+    let userProgress = progress;
+    const topicsList = await Topic.find({});
+    
+    if (!userProgress) {
+      // Find all default topics to compute initial unlocks (subtopics with no prerequisites)
+      const initialUnlocked = [];
+      topicsList.forEach((t) => {
+        t.subtopics.forEach((s) => {
+          if (!s.prerequisites || s.prerequisites.length === 0) {
+            initialUnlocked.push(s.name);
+          }
+        });
+      });
+
+      userProgress = new UserProgress({
+        userId: user._id,
+        unlockedSubtopics: initialUnlocked,
+        completedSubtopics: [],
+        mastery: {}
+      });
+      await userProgress.save();
+    } else {
+      const newlyUnlockedSubtopics = await evaluateUnlocks(
+        performances,
+        topicsList,
+        userProgress.overrideUnlockThreshold,
+        userProgress.forcedUnlockedSubtopics,
+        userProgress.forcedLockedSubtopics
+      );
+      userProgress.unlockedSubtopics = newlyUnlockedSubtopics;
+      await userProgress.save();
+    }
+
     res.json({
       user: {
         _id: user._id,
@@ -236,6 +311,8 @@ const getUserProfile = async (req, res) => {
         codechefHandle: user.codechefHandle || "",
         gfgHandle: user.gfgHandle || "",
         hackerrankHandle: user.hackerrankHandle || "",
+        codingNinjasHandle: user.codingNinjasHandle || "",
+        hackerEarthHandle: user.hackerEarthHandle || "",
         name: user.name || "",
         branch: user.branch || "",
         batch: user.batch || "",
@@ -245,7 +322,7 @@ const getUserProfile = async (req, res) => {
         studiedTopics: user.studiedTopics,
         createdAt: user.createdAt
       },
-      progress: progress || { unlockedSubtopics: [], completedSubtopics: [], mastery: {}, solvedProblems: [] },
+      progress: userProgress,
       performances: performances || []
     });
   } catch (error) {
@@ -272,6 +349,8 @@ const updateUserProfile = async (req, res) => {
     if (req.body.codechefHandle !== undefined) user.codechefHandle = req.body.codechefHandle;
     if (req.body.gfgHandle !== undefined) user.gfgHandle = req.body.gfgHandle;
     if (req.body.hackerrankHandle !== undefined) user.hackerrankHandle = req.body.hackerrankHandle;
+    if (req.body.codingNinjasHandle !== undefined) user.codingNinjasHandle = req.body.codingNinjasHandle;
+    if (req.body.hackerEarthHandle !== undefined) user.hackerEarthHandle = req.body.hackerEarthHandle;
     if (req.body.name !== undefined) user.name = req.body.name;
     if (req.body.branch !== undefined) user.branch = req.body.branch;
     if (req.body.batch !== undefined) user.batch = req.body.batch;
@@ -283,7 +362,6 @@ const updateUserProfile = async (req, res) => {
     // Trigger initial UserProgress and Topic unlocks setup if it doesn't exist
     let progress = await UserProgress.findOne({ userId: user._id });
     if (!progress) {
-      // Find all default topics to compute initial unlocks (subtopics with no prerequisites)
       const topicsList = await Topic.find({});
       const initialUnlocked = [];
       topicsList.forEach((t) => {
@@ -303,8 +381,16 @@ const updateUserProfile = async (req, res) => {
       await progress.save();
     }
 
-    // If handles are modified, run an immediate background sync
-    if (req.body.codeforcesHandle || req.body.leetcodeHandle) {
+    // If any handle is modified, run an immediate sync
+    if (
+      req.body.codeforcesHandle ||
+      req.body.leetcodeHandle ||
+      req.body.codechefHandle ||
+      req.body.gfgHandle ||
+      req.body.hackerrankHandle ||
+      req.body.codingNinjasHandle ||
+      req.body.hackerEarthHandle
+    ) {
       try {
         await syncPlatformData(user);
       } catch (syncErr) {
@@ -325,6 +411,8 @@ const updateUserProfile = async (req, res) => {
         codechefHandle: user.codechefHandle || "",
         gfgHandle: user.gfgHandle || "",
         hackerrankHandle: user.hackerrankHandle || "",
+        codingNinjasHandle: user.codingNinjasHandle || "",
+        hackerEarthHandle: user.hackerEarthHandle || "",
         name: user.name || "",
         branch: user.branch || "",
         batch: user.batch || "",
@@ -346,7 +434,15 @@ const updateUserProfile = async (req, res) => {
 // @route   POST /api/user/connect-platform
 // @access  Private
 const connectPlatform = async (req, res) => {
-  const { codeforcesHandle, leetcodeHandle } = req.body;
+  const {
+    codeforcesHandle,
+    leetcodeHandle,
+    codechefHandle,
+    gfgHandle,
+    hackerrankHandle,
+    codingNinjasHandle,
+    hackerEarthHandle
+  } = req.body;
 
   try {
     const user = await User.findById(req.user.id);
@@ -356,10 +452,15 @@ const connectPlatform = async (req, res) => {
 
     if (codeforcesHandle !== undefined) user.codeforcesHandle = codeforcesHandle;
     if (leetcodeHandle !== undefined) user.leetcodeHandle = leetcodeHandle;
+    if (codechefHandle !== undefined) user.codechefHandle = codechefHandle;
+    if (gfgHandle !== undefined) user.gfgHandle = gfgHandle;
+    if (hackerrankHandle !== undefined) user.hackerrankHandle = hackerrankHandle;
+    if (codingNinjasHandle !== undefined) user.codingNinjasHandle = codingNinjasHandle;
+    if (hackerEarthHandle !== undefined) user.hackerEarthHandle = hackerEarthHandle;
 
     await user.save();
 
-    console.log(`Starting sync for user ${user.username} (CF: ${user.codeforcesHandle}, LC: ${user.leetcodeHandle})...`);
+    console.log(`Starting sync for user ${user.username}...`);
     
     // Perform data synchronization
     const syncResult = await syncPlatformData(user);
@@ -376,6 +477,11 @@ const connectPlatform = async (req, res) => {
         username: user.username,
         codeforcesHandle: user.codeforcesHandle,
         leetcodeHandle: user.leetcodeHandle,
+        codechefHandle: user.codechefHandle || "",
+        gfgHandle: user.gfgHandle || "",
+        hackerrankHandle: user.hackerrankHandle || "",
+        codingNinjasHandle: user.codingNinjasHandle || "",
+        hackerEarthHandle: user.hackerEarthHandle || "",
         currentLevel: user.currentLevel,
         studiedTopics: user.studiedTopics
       },

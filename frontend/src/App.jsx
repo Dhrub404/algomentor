@@ -27,7 +27,7 @@ const PrivateRoute = ({ children }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#080c14] flex items-center justify-center text-indigoAccent">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
         <RefreshCw className="w-8 h-8 animate-spin" />
       </div>
     );

@@ -55,7 +55,7 @@ const TopicPerformanceSchema = new mongoose.Schema({
   },
   platform: { 
     type: String, 
-    enum: ["codeforces", "leetcode", "combined"], 
+    enum: ["leetcode", "codeforces", "codechef", "geeksforgeeks", "hackerrank", "codingninjas", "hackerearth", "combined"], 
     default: "combined" 
   }
 });

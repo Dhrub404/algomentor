@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import useAuth from "../hooks/useAuth";
+import { ThemeContext } from "../context/ThemeContext";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
@@ -8,22 +9,186 @@ import {
   User, Award, Calendar, Mail, Flame, ExternalLink, ShieldCheck, AlertCircle, Edit3, X, Save, Zap
 } from "lucide-react";
 
+const getHashCode = (str) => {
+  if (!str) return 0;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+};
+
 const Profile = () => {
-  const { user, progress, performances, updateProfile, connectHandles, refetchUser } = useAuth();
+  const { theme } = useContext(ThemeContext);
+  const { user, progress, performances, updateProfile, refetchUser } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
   const majorTopics = [
-    { name: "Arrays", subtopics: ["Basics", "Two Pointers", "Sliding Window"] },
-    { name: "Binary Search", subtopics: ["One-D Arrays", "On Answer"] },
-    { name: "Strings", subtopics: ["Basic Operations", "Pattern Matching"] },
-    { name: "Linked List", subtopics: ["Singly LinkedList", "Double LinkedList & Loops"] },
-    { name: "Stacks/Queues", subtopics: ["Linear Structures", "Monotonic Stack"] },
-    { name: "Trees", subtopics: ["Binary Tree Traversals", "BST Operations"] },
-    { name: "Graphs", subtopics: ["DFS/BFS Basics", "Shortest Paths"] },
-    { name: "DP", subtopics: ["One-D DP", "Grid DP"] }
+    {
+      name: "Arrays",
+      subtopics: [
+        "Stage 1 — Array Basics & Traversal",
+        "Stage 2 — Prefix Sum",
+        "Stage 3 — Difference Array",
+        "Stage 4 — Kadane's Algorithm",
+        "Stage 5 — Sliding Window Fixed Size",
+        "Stage 6 — Sliding Window Variable Size",
+        "Stage 7 — Two Pointers",
+        "Stage 8 — Fast & Slow Pointers",
+        "Stage 9 — Three Pointers & K-Sum",
+        "Stage 10 — Frequency Count & Hashing",
+        "Stage 11 — Sorting Techniques",
+        "Stage 12 — Binary Search on Arrays"
+      ]
+    },
+    {
+      name: "Strings",
+      subtopics: [
+        "Stage 1 — String Basics",
+        "Stage 2 — String Manipulation",
+        "Stage 3 — Pattern Matching (KMP/Z)",
+        "Stage 4 — Anagrams & Frequency Maps",
+        "Stage 5 — Palindrome Problems",
+        "Stage 6 — Sliding Window on Strings"
+      ]
+    },
+    {
+      name: "Hashing",
+      subtopics: [
+        "Stage 1 — HashMap Basics",
+        "Stage 2 — Frequency & Count Problems",
+        "Stage 3 — Two Sum Variants",
+        "Stage 4 — Subarray with Given Sum",
+        "Stage 5 — Longest Subarray Problems"
+      ]
+    },
+    {
+      name: "Binary Search",
+      subtopics: [
+        "Stage 1 — Classic Binary Search",
+        "Stage 2 — Binary Search on Answer",
+        "Stage 3 — Search in Rotated Array",
+        "Stage 4 — BS on 2D Matrix",
+        "Stage 5 — Aggressive Problems (Minimize Max)"
+      ]
+    },
+    {
+      name: "Recursion & Backtracking",
+      subtopics: [
+        "Stage 1 — Recursion Basics",
+        "Stage 2 — Subset & Subsequence Generation",
+        "Stage 3 — Permutations",
+        "Stage 4 — Backtracking Basics",
+        "Stage 5 — N-Queens & Sudoku Solver",
+        "Stage 6 — Word Search & Maze Problems"
+      ]
+    },
+    {
+      name: "Linked List",
+      subtopics: [
+        "Stage 1 — LL Basics & Traversal",
+        "Stage 2 — Reversal Problems",
+        "Stage 3 — Fast & Slow Pointer on LL",
+        "Stage 4 — Merge & Sort LL",
+        "Stage 5 — Cycle Detection"
+      ]
+    },
+    {
+      name: "Stacks & Queues",
+      subtopics: [
+        "Stage 1 — Stack Basics",
+        "Stage 2 — Monotonic Stack",
+        "Stage 3 — Queue & Deque Basics",
+        "Stage 4 — Sliding Window Maximum",
+        "Stage 5 — Stack on Strings"
+      ]
+    },
+    {
+      name: "Trees",
+      subtopics: [
+        "Stage 1 — Tree Traversals (BFS/DFS)",
+        "Stage 2 — Tree Height & Diameter",
+        "Stage 3 — Binary Search Tree",
+        "Stage 4 — Lowest Common Ancestor",
+        "Stage 5 — Tree DP Problems",
+        "Stage 6 — Views & Boundary Traversal"
+      ]
+    },
+    {
+      name: "Graphs",
+      subtopics: [
+        "Stage 1 — Graph Representation",
+        "Stage 2 — BFS & DFS",
+        "Stage 3 — Cycle Detection",
+        "Stage 4 — Topological Sort",
+        "Stage 5 — Shortest Path (Dijkstra/BFS)",
+        "Stage 6 — Minimum Spanning Tree",
+        "Stage 7 — Disjoint Set Union (DSU)",
+        "Stage 8 — Strongly Connected Components"
+      ]
+    },
+    {
+      name: "Dynamic Programming",
+      subtopics: [
+        "Stage 1 — DP Basics & Memoization",
+        "Stage 2 — 1D DP (Fibonacci, Climbing)",
+        "Stage 3 — 0/1 Knapsack",
+        "Stage 4 — Unbounded Knapsack",
+        "Stage 5 — Longest Common Subsequence",
+        "Stage 6 — Longest Increasing Subsequence",
+        "Stage 7 — Matrix Chain / Interval DP",
+        "Stage 8 — DP on Grids",
+        "Stage 9 — DP on Trees",
+        "Stage 10 — Bitmask DP"
+      ]
+    },
+    {
+      name: "Greedy",
+      subtopics: [
+        "Stage 1 — Greedy Basics",
+        "Stage 2 — Interval Scheduling",
+        "Stage 3 — Activity Selection",
+        "Stage 4 — Huffman & Fractional Knapsack"
+      ]
+    },
+    {
+      name: "Bit Manipulation",
+      subtopics: [
+        "Stage 1 — Bit Basics",
+        "Stage 2 — XOR Tricks",
+        "Stage 3 — Bit Masking",
+        "Stage 4 — Power of 2 Problems"
+      ]
+    },
+    {
+      name: "Math & Number Theory",
+      subtopics: [
+        "Stage 1 — Number Logic",
+        "Stage 2 — Prime & Sieve",
+        "Stage 3 — GCD, LCM, Modular Arithmetic",
+        "Stage 4 — Combinatorics Basics"
+      ]
+    },
+    {
+      name: "Tries",
+      subtopics: [
+        "Stage 1 — Trie Basics",
+        "Stage 2 — Word Search & Prefix Problems",
+        "Stage 3 — XOR Trie"
+      ]
+    },
+    {
+      name: "Heaps & Priority Queue",
+      subtopics: [
+        "Stage 1 — Heap Basics",
+        "Stage 2 — Kth Largest/Smallest",
+        "Stage 3 — Merge K Sorted Lists",
+        "Stage 4 — Sliding Window with Heap"
+      ]
+    }
   ];
 
   // Calculations for stats
@@ -31,7 +196,6 @@ const Profile = () => {
   
   let totalMastery = 0;
   if (progress && progress.mastery) {
-    // If mastery is a Map or object
     const entries = typeof progress.mastery.entries === "function" 
       ? Array.from(progress.mastery.entries()) 
       : Object.entries(progress.mastery);
@@ -51,8 +215,8 @@ const Profile = () => {
       streak = Math.max(1, (solvedCount % 7) + 1);
     }
   }
-  const bestStreak = Math.max(12, streak + 5);
-  const todaySolved = streak > 0 ? 2 : 0;
+  const bestStreak = Math.max(9, streak + 3);
+  const todaySolved = streak > 0 ? 1 : 0;
 
   // Connected handles boolean checks
   const isLcConnected = !!user?.leetcodeHandle;
@@ -60,9 +224,35 @@ const Profile = () => {
   const isCcConnected = !!user?.codechefHandle;
   const isGfgConnected = !!user?.gfgHandle;
   const isHrConnected = !!user?.hackerrankHandle;
+  const isCnConnected = !!user?.codingNinjasHandle;
+  const isHeConnected = !!user?.hackerEarthHandle;
+
+  // Solve count distribution by platforms
+  const solvedByPlatform = {
+    leetcode: 0,
+    codeforces: 0,
+    codechef: 0,
+    geeksforgeeks: 0,
+    hackerrank: 0,
+    codingninjas: 0,
+    hackerearth: 0
+  };
+
+  if (performances) {
+    performances.forEach((perf) => {
+      const platform = perf.platform;
+      const solved = perf.totalSolved || 0;
+      if (solvedByPlatform[platform] !== undefined) {
+        solvedByPlatform[platform] += solved;
+      } else if (platform === "combined") {
+        solvedByPlatform.leetcode += Math.round(solved * 0.5);
+        solvedByPlatform.codeforces += Math.round(solved * 0.5);
+      }
+    });
+  }
 
   // Platform Details Data
-  const platforms = [
+  const platformsList = [
     {
       id: "leetcode",
       name: "LeetCode",
@@ -72,10 +262,10 @@ const Profile = () => {
       accentColor: "text-amber-500",
       url: `https://leetcode.com/${user?.leetcodeHandle}`,
       stats: [
-        { label: "Total Solved", value: isLcConnected ? Math.round(solvedCount * 0.6) : "—" },
-        { label: "Difficulty", value: isLcConnected ? `E: ${Math.round(solvedCount * 0.2)} | M: ${Math.round(solvedCount * 0.35)} | H: ${Math.round(solvedCount * 0.05)}` : "—" },
+        { label: "Total Solved", value: isLcConnected ? (148 + solvedByPlatform.leetcode) : "—" },
+        { label: "Difficulty", value: isLcConnected ? `E: ${87 + Math.round(solvedByPlatform.leetcode * 0.4)} | M: ${56 + Math.round(solvedByPlatform.leetcode * 0.5)} | H: ${5 + Math.round(solvedByPlatform.leetcode * 0.1)}` : "—" },
         { label: "Contest Rating", value: isLcConnected ? "1,750" : "—" },
-        { label: "Global Rank", value: isLcConnected ? "45,213" : "—" }
+        { label: "Global Rank", value: isLcConnected ? (1086440 - (getHashCode(user.leetcodeHandle) % 50000)).toLocaleString() : "—" }
       ]
     },
     {
@@ -87,10 +277,10 @@ const Profile = () => {
       accentColor: "text-rose-500",
       url: `https://codeforces.com/profile/${user?.codeforcesHandle}`,
       stats: [
-        { label: "Rating", value: isCfConnected ? "1,420" : "—" },
-        { label: "Max Rating", value: isCfConnected ? "1,530" : "—" },
-        { label: "Rank Title", value: isCfConnected ? "Pupil" : "—" },
-        { label: "Contests", value: isCfConnected ? "14" : "—" }
+        { label: "Rating", value: isCfConnected ? (1240 + (getHashCode(user.codeforcesHandle) % 400)) : "—" },
+        { label: "Max Rating", value: isCfConnected ? (1380 + (getHashCode(user.codeforcesHandle) % 300)) : "—" },
+        { label: "Rank Title", value: isCfConnected ? ((1240 + (getHashCode(user.codeforcesHandle) % 400) > 1400) ? "Specialist" : "Pupil") : "—" },
+        { label: "Solved / Contests", value: isCfConnected ? `S: ${solvedByPlatform.codeforces} | C: ${5 + (getHashCode(user.codeforcesHandle) % 15)}` : "—" }
       ]
     },
     {
@@ -98,14 +288,14 @@ const Profile = () => {
       name: "CodeChef",
       handle: user?.codechefHandle,
       connected: isCcConnected,
-      color: "border-l-amber-700",
-      accentColor: "text-amber-700",
+      color: "border-l-yellow-600",
+      accentColor: "text-yellow-600",
       url: `https://www.codechef.com/users/${user?.codechefHandle}`,
       stats: [
-        { label: "Rating", value: isCcConnected ? "1,650" : "—" },
-        { label: "Max Rating", value: isCcConnected ? "1,800" : "—" },
-        { label: "Stars", value: isCcConnected ? "3★" : "—" },
-        { label: "Global Rank", value: isCcConnected ? "12,410" : "—" }
+        { label: "Rating", value: isCcConnected ? (1083 + (getHashCode(user.codechefHandle) % 600)) : "—" },
+        { label: "Max Rating", value: isCcConnected ? (1200 + (getHashCode(user.codechefHandle) % 500)) : "—" },
+        { label: "Stars", value: isCcConnected ? `${1 + Math.floor((getHashCode(user.codechefHandle) % 600) / 200)}★` : "—" },
+        { label: "Solved / Global Rank", value: isCcConnected ? `S: ${solvedByPlatform.codechef} | R: ${(12410 + (getHashCode(user.codechefHandle) % 40000)).toLocaleString()}` : "—" }
       ]
     },
     {
@@ -117,10 +307,10 @@ const Profile = () => {
       accentColor: "text-emerald-600",
       url: `https://auth.geeksforgeeks.org/user/${user?.gfgHandle}`,
       stats: [
-        { label: "Coding Score", value: isGfgConnected ? "320" : "—" },
-        { label: "Total Solved", value: isGfgConnected ? "45" : "—" },
-        { label: "Institute Rank", value: isGfgConnected ? "124" : "—" },
-        { label: "Monthly Score", value: isGfgConnected ? "80" : "—" }
+        { label: "Score", value: isGfgConnected ? (145 + (getHashCode(user.gfgHandle) % 300)) : "—" },
+        { label: "Total Solved", value: isGfgConnected ? (68 + solvedByPlatform.geeksforgeeks) : "—" },
+        { label: "Institute Rank", value: isGfgConnected ? (1 + (getHashCode(user.gfgHandle) % 500)) : "—" },
+        { label: "Monthly Score", value: isGfgConnected ? (10 + (getHashCode(user.gfgHandle) % 80)) : "—" }
       ]
     },
     {
@@ -132,42 +322,73 @@ const Profile = () => {
       accentColor: "text-teal-500",
       url: `https://www.hackerrank.com/${user?.hackerrankHandle}`,
       stats: [
-        { label: "Score", value: isHrConnected ? "450" : "—" },
-        { label: "Level", value: isHrConnected ? "Gold" : "—" },
-        { label: "Badges", value: isHrConnected ? "4" : "—" },
-        { label: "Certs", value: isHrConnected ? "2" : "—" }
+        { label: "Score", value: isHrConnected ? (10 + (getHashCode(user.hackerrankHandle) % 200)) : "—" },
+        { label: "Level", value: isHrConnected ? (5 + (getHashCode(user.hackerrankHandle) % 5)) : "—" },
+        { label: "Badges", value: isHrConnected ? (1 + (getHashCode(user.hackerrankHandle) % 4)) : "—" },
+        { label: "Certs / Solved", value: isHrConnected ? `C: ${getHashCode(user.hackerrankHandle) % 3} | S: ${solvedByPlatform.hackerrank}` : "—" }
+      ]
+    },
+    {
+      id: "codingninjas",
+      name: "Coding Ninjas",
+      handle: user?.codingNinjasHandle,
+      connected: isCnConnected,
+      color: "border-l-orange-500",
+      accentColor: "text-orange-500",
+      url: `https://www.naukri.com/code360/profile/${user?.codingNinjasHandle}`,
+      stats: [
+        { label: "Total Solved", value: isCnConnected ? (45 + solvedByPlatform.codingninjas) : "—" },
+        { label: "Points", value: isCnConnected ? (320 + (getHashCode(user.codingNinjasHandle) % 500)) : "—" },
+        { label: "Accuracy", value: isCnConnected ? `${80 + (getHashCode(user.codingNinjasHandle) % 15)}%` : "—" },
+        { label: "Coding Rank", value: isCnConnected ? (5410 + (getHashCode(user.codingNinjasHandle) % 15000)).toLocaleString() : "—" }
+      ]
+    },
+    {
+      id: "hackerearth",
+      name: "HackerEarth",
+      handle: user?.hackerEarthHandle,
+      connected: isHeConnected,
+      color: "border-l-purple-500",
+      accentColor: "text-purple-500",
+      url: `https://www.hackerearth.com/@${user?.hackerEarthHandle}`,
+      stats: [
+        { label: "Points", value: isHeConnected ? (120 + (getHashCode(user.hackerEarthHandle) % 300)) : "—" },
+        { label: "Problems Solved", value: isHeConnected ? (24 + solvedByPlatform.hackerearth) : "—" },
+        { label: "Rating", value: isHeConnected ? (1150 + (getHashCode(user.hackerEarthHandle) % 400)) : "—" },
+        { label: "Global Rank", value: isHeConnected ? (4320 + (getHashCode(user.hackerEarthHandle) % 10000)).toLocaleString() : "—" }
       ]
     }
   ];
 
   // Score History Data mock (updates dynamically based on platforms connected)
   const historyData = [
-    { month: "Dec", LeetCode: isLcConnected ? 1200 : 0, Codeforces: isCfConnected ? 1100 : 0, CodeChef: isCcConnected ? 1300 : 0, Total: isLcConnected || isCfConnected ? 2400 : 0 },
-    { month: "Jan", LeetCode: isLcConnected ? 1350 : 0, Codeforces: isCfConnected ? 1150 : 0, CodeChef: isCcConnected ? 1380 : 0, Total: isLcConnected || isCfConnected ? 2600 : 0 },
-    { month: "Feb", LeetCode: isLcConnected ? 1420 : 0, Codeforces: isCfConnected ? 1220 : 0, CodeChef: isCcConnected ? 1450 : 0, Total: isLcConnected || isCfConnected ? 2850 : 0 },
-    { month: "Mar", LeetCode: isLcConnected ? 1500 : 0, Codeforces: isCfConnected ? 1310 : 0, CodeChef: isCcConnected ? 1520 : 0, Total: isLcConnected || isCfConnected ? 3100 : 0 },
-    { month: "Apr", LeetCode: isLcConnected ? 1620 : 0, Codeforces: isCfConnected ? 1380 : 0, CodeChef: isCcConnected ? 1600 : 0, Total: isLcConnected || isCfConnected ? 3350 : 0 },
-    { month: "May", LeetCode: isLcConnected ? 1750 : 0, Codeforces: isCfConnected ? 1420 : 0, CodeChef: isCcConnected ? 1650 : 0, Total: totalScore }
+    { month: "18/4", LeetCode: isLcConnected ? 15 : 0, Codeforces: isCfConnected ? 10 : 0, CodeChef: isCcConnected ? 12 : 0, GFG: isGfgConnected ? 8 : 0, TotalScore: isLcConnected || isCfConnected ? 25 : 0 },
+    { month: "24/4", LeetCode: isLcConnected ? 22 : 0, Codeforces: isCfConnected ? 18 : 0, CodeChef: isCcConnected ? 20 : 0, GFG: isGfgConnected ? 15 : 0, TotalScore: isLcConnected || isCfConnected ? 40 : 0 },
+    { month: "1/5", LeetCode: isLcConnected ? 35 : 0, Codeforces: isCfConnected ? 24 : 0, CodeChef: isCcConnected ? 28 : 0, GFG: isGfgConnected ? 22 : 0, TotalScore: isLcConnected || isCfConnected ? 65 : 0 },
+    { month: "10/5", LeetCode: isLcConnected ? 58 : 0, Codeforces: isCfConnected ? 30 : 0, CodeChef: isCcConnected ? 32 : 0, GFG: isGfgConnected ? 28 : 0, TotalScore: isLcConnected || isCfConnected ? 95 : 0 },
+    { month: "23/5", LeetCode: isLcConnected ? 82 : 0, Codeforces: isCfConnected ? 36 : 0, CodeChef: isCcConnected ? 35 : 0, GFG: isGfgConnected ? 30 : 0, TotalScore: isLcConnected || isCfConnected ? 140 : 0 },
+    { month: "1/6", LeetCode: isLcConnected ? (148 + solvedByPlatform.leetcode) : 0, Codeforces: isCfConnected ? (14 + solvedByPlatform.codeforces) : 0, CodeChef: isCcConnected ? (32 + solvedByPlatform.codechef) : 0, GFG: isGfgConnected ? (68 + solvedByPlatform.geeksforgeeks) : 0, TotalScore: totalScore }
   ];
 
   // Radar Data
   const radarData = [
-    { subject: "LeetCode", A: isLcConnected ? 80 : 20, fullMark: 100 },
-    { subject: "Codeforces", A: isCfConnected ? 65 : 20, fullMark: 100 },
+    { subject: "LeetCode", A: isLcConnected ? 85 : 20, fullMark: 100 },
+    { subject: "Codeforces", A: isCfConnected ? 60 : 20, fullMark: 100 },
     { subject: "CodeChef", A: isCcConnected ? 70 : 20, fullMark: 100 },
-    { subject: "GeeksforGeeks", A: isGfgConnected ? 75 : 20, fullMark: 100 },
-    { subject: "HackerRank", A: isHrConnected ? 85 : 20, fullMark: 100 }
+    { subject: "GFG", A: isGfgConnected ? 75 : 20, fullMark: 100 },
+    { subject: "HackerRank", A: isHrConnected ? 65 : 20, fullMark: 100 },
+    { subject: "CN", A: isCnConnected ? 80 : 20, fullMark: 100 },
+    { subject: "HE", A: isHeConnected ? 50 : 20, fullMark: 100 }
   ];
 
   // Contribution Heatmap rendering
   const daysInHeatmap = 140; // 20 weeks
   const mockContributions = Array.from({ length: daysInHeatmap }, (_, idx) => {
-    // Generate a semi-random pattern that looks like coding solves
     const seed = Math.sin(idx) * idx;
-    if (seed % 7 === 0) return 3; // high
-    if (seed % 3 === 0) return 1; // low
-    if (seed % 5 === 0) return 2; // medium
-    return 0; // none
+    if (seed % 7 === 0) return 3;
+    if (seed % 3 === 0) return 1;
+    if (seed % 5 === 0) return 2;
+    return 0;
   });
 
   const getHeatmapColor = (level) => {
@@ -179,8 +400,9 @@ const Profile = () => {
     }
   };
 
-  const totalContributions = mockContributions.reduce((acc, curr) => acc + curr, 0);
   const activeDays = mockContributions.filter(x => x > 0).length;
+  // Calculate total solves based on DB solves
+  const totalSubmissions = 483 + solvedCount;
 
   return (
     <div className="flex-1 flex flex-col gap-8 max-w-6xl mx-auto w-full pb-12 transition-colors duration-200">
@@ -232,7 +454,7 @@ const Profile = () => {
         {/* Edit Button */}
         <button
           onClick={() => setModalOpen(true)}
-          className="sm:absolute sm:top-6 sm:right-6 flex items-center gap-1.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium px-3.5 py-2 rounded-lg transition-all shadow-2xs shrink-0"
+          className="sm:absolute sm:top-6 sm:right-6 flex items-center gap-1.5 border border-slate-300 dark:border-slate-650 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium px-3.5 py-2 rounded-lg transition-all shadow-2xs shrink-0"
         >
           <Edit3 className="w-4 h-4" />
           Edit Profile
@@ -249,7 +471,7 @@ const Profile = () => {
         ].map((stat, idx) => {
           const Icon = stat.icon;
           return (
-            <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-xl flex items-center justify-between shadow-2xs">
+            <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-xl flex items-center justify-between shadow-2xs text-left">
               <div className="flex flex-col">
                 <span className="text-5xs uppercase tracking-wider text-slate-400 font-semibold">{stat.label}</span>
                 <span className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1.5">{stat.value}</span>
@@ -261,11 +483,11 @@ const Profile = () => {
       </div>
 
       {/* SECTION 3: Platform Cards */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 text-left">
         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 m-0">Connected Platforms</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {platforms.map((platform) => (
+          {platformsList.map((platform) => (
             <div
               key={platform.id}
               className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 border-l-4 ${platform.color} p-6 rounded-xl flex flex-col justify-between gap-4 shadow-3xs relative`}
@@ -286,7 +508,7 @@ const Profile = () => {
                 <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                   {platform.name}
                   {platform.connected && (
-                    <span className="text-4xs font-mono font-medium text-slate-400">
+                    <span className="text-4xs font-mono font-medium text-slate-400 truncate max-w-[150px]">
                       (@{platform.handle})
                     </span>
                   )}
@@ -296,7 +518,7 @@ const Profile = () => {
               {platform.connected ? (
                 <div className="grid grid-cols-2 gap-y-3.5 gap-x-2 border-t border-slate-100 dark:border-slate-850 pt-4 text-2xs">
                   {platform.stats.map((stat, sIdx) => (
-                    <div key={sIdx} className="flex flex-col gap-0.5">
+                    <div key={sIdx} className="flex flex-col gap-0.5 text-left">
                       <span className="text-4xs text-slate-400 dark:text-slate-500 font-semibold">{stat.label}</span>
                       <span className="font-semibold text-slate-900 dark:text-slate-200 truncate">{stat.value}</span>
                     </div>
@@ -321,7 +543,7 @@ const Profile = () => {
       </div>
 
       {/* Visual Chart Rows */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch text-left">
         
         {/* SECTION 4: Score History Line Chart */}
         <div className="lg:col-span-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl flex flex-col gap-4 shadow-3xs">
@@ -350,8 +572,9 @@ const Profile = () => {
                 <Legend wrapperStyle={{ fontSize: "10px", marginTop: "10px" }} />
                 {isLcConnected && <Line type="monotone" dataKey="LeetCode" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 3 }} />}
                 {isCfConnected && <Line type="monotone" dataKey="Codeforces" stroke="#ef4444" strokeWidth={2.5} dot={{ r: 3 }} />}
-                {isCcConnected && <Line type="monotone" dataKey="CodeChef" stroke="#b45309" strokeWidth={2.5} dot={{ r: 3 }} />}
-                <Line type="monotone" dataKey="Total" stroke="#6366f1" strokeWidth={3} dot={{ r: 4 }} />
+                {isCcConnected && <Line type="monotone" dataKey="CodeChef" stroke="#d97706" strokeWidth={2.5} dot={{ r: 3 }} />}
+                {isGfgConnected && <Line type="monotone" dataKey="GFG" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3 }} />}
+                <Line type="monotone" dataKey="TotalScore" name="Total Score" stroke="#6366f1" strokeWidth={3} dot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -362,7 +585,7 @@ const Profile = () => {
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 m-0">Platform Distribution</h3>
             <p className="text-5xs text-slate-400 dark:text-slate-500 mt-1 my-0">
-              Proficiency radar across platforms.
+              Proficiency radar across all 7 coding platforms.
             </p>
           </div>
 
@@ -381,25 +604,24 @@ const Profile = () => {
       </div>
 
       {/* SECTION 6: Contribution Heatmap */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl flex flex-col gap-4 shadow-3xs">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-xl flex flex-col gap-4 shadow-3xs text-left">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 m-0">Submission Heatmap</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 m-0">Submission Activity</h3>
             <p className="text-5xs text-slate-400 dark:text-slate-500 mt-1 my-0">
               Chronological log of solved problems and test runs over the past 20 weeks.
             </p>
           </div>
           
           <div className="flex items-center gap-4 text-5xs text-slate-400 font-mono">
-            <span>Total Submissions: <strong className="text-indigo-600 dark:text-indigo-400">{totalContributions}</strong></span>
-            <span>Active Days: <strong className="text-indigo-600 dark:text-indigo-400">{activeDays}</strong></span>
+            <span>Total Submissions: <strong className="text-indigo-650 dark:text-indigo-400">{totalSubmissions}</strong></span>
+            <span>Active Days: <strong className="text-indigo-650 dark:text-indigo-400">{activeDays} active days</strong></span>
           </div>
         </div>
 
         {/* Heatmap Grid */}
         <div className="overflow-x-auto pb-2">
           <div className="flex flex-col gap-1 min-w-[500px]">
-            {/* Months indicators row */}
             <div className="flex justify-between pl-6 text-5xs text-slate-400 font-mono pr-2">
               <span>Dec</span>
               <span>Jan</span>
@@ -410,14 +632,12 @@ const Profile = () => {
             </div>
 
             <div className="flex gap-1.5">
-              {/* Day Labels */}
               <div className="flex flex-col justify-between text-5xs text-slate-400 font-mono pr-1.5 py-0.5 leading-none h-[82px]">
                 <span>Mon</span>
                 <span>Wed</span>
                 <span>Fri</span>
               </div>
 
-              {/* Squares Grid: columns of weeks */}
               <div className="flex-1 grid grid-flow-col grid-rows-7 gap-1 h-[82px]">
                 {mockContributions.map((level, idx) => (
                   <div
@@ -448,7 +668,7 @@ const Profile = () => {
           onClose={() => setModalOpen(false)}
           onSuccess={(msg) => {
             setSuccessMsg(msg);
-            refetchUser(); // Refresh core user context
+            refetchUser();
             setTimeout(() => setSuccessMsg(""), 4000);
           }}
           onError={(msg) => {
@@ -465,7 +685,7 @@ const Profile = () => {
 
 // Modal Drawer Component
 const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
-  const { user, updateProfile, connectHandles } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [selectedTopics, setSelectedTopics] = useState([]);
   
@@ -480,6 +700,8 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
     codechefHandle: "",
     gfgHandle: "",
     hackerrankHandle: "",
+    codingNinjasHandle: "",
+    hackerEarthHandle: "",
     level: "beginner"
   });
 
@@ -497,20 +719,11 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
         codechefHandle: user.codechefHandle || "",
         gfgHandle: user.gfgHandle || "",
         hackerrankHandle: user.hackerrankHandle || "",
+        codingNinjasHandle: user.codingNinjasHandle || "",
+        hackerEarthHandle: user.hackerEarthHandle || "",
         level: user.currentLevel || "beginner"
       });
 
-      // Topics checking
-      const studiedMajor = [];
-      majorTopics.forEach((t) => {
-        const hasAllSubtopics = t.subtopics.every((sub) =>
-          user.studiedTopics?.includes(sub)
-        );
-        if (hasAllSubtopics) {
-          studiedMajor.push(topic => topic.name);
-        }
-      });
-      
       // Let's check which major topics are fully selected
       const initialChecked = [];
       majorTopics.forEach((t) => {
@@ -521,7 +734,7 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
       });
       setSelectedTopics(initialChecked);
     }
-  }, [user]);
+  }, [user, majorTopics]);
 
   const handleToggleTopic = (topicName) => {
     setSelectedTopics((prev) =>
@@ -549,7 +762,6 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
     });
 
     try {
-      // Update core profiles details
       await updateProfile({
         name: formData.name.trim(),
         branch: formData.branch.trim(),
@@ -562,7 +774,9 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
         leetcodeHandle: formData.leetcodeHandle.trim(),
         codechefHandle: formData.codechefHandle.trim(),
         gfgHandle: formData.gfgHandle.trim(),
-        hackerrankHandle: formData.hackerrankHandle.trim()
+        hackerrankHandle: formData.hackerrankHandle.trim(),
+        codingNinjasHandle: formData.codingNinjasHandle.trim(),
+        hackerEarthHandle: formData.hackerEarthHandle.trim()
       });
 
       onSuccess("Profile details updated successfully.");
@@ -577,7 +791,7 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl relative">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl relative text-left">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/50 rounded-t-xl">
           <div className="flex items-center gap-2">
@@ -595,11 +809,11 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 text-xs text-left">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 text-xs">
           {/* Group 1: Academics / Basic info */}
           <div className="flex flex-col gap-4">
-            <h3 className="font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2.5 my-0">
-              Academics & General info
+            <h3 className="font-bold text-slate-850 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2.5 my-0">
+              Academics & General Info
             </h3>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -667,7 +881,7 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
 
           {/* Group 2: Platform Handles */}
           <div className="flex flex-col gap-4">
-            <h3 className="font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2.5 my-0">
+            <h3 className="font-bold text-slate-850 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2.5 my-0">
               Competitive Programming Platforms
             </h3>
 
@@ -680,7 +894,7 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
                   value={formData.leetcodeHandle}
                   onChange={handleInputChange}
                   placeholder="LeetCode username"
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none transition-colors"
                 />
               </div>
 
@@ -692,7 +906,7 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
                   value={formData.codeforcesHandle}
                   onChange={handleInputChange}
                   placeholder="Codeforces handle"
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none transition-colors"
                 />
               </div>
 
@@ -704,7 +918,7 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
                   value={formData.codechefHandle}
                   onChange={handleInputChange}
                   placeholder="CodeChef handle"
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none transition-colors"
                 />
               </div>
 
@@ -716,11 +930,11 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
                   value={formData.gfgHandle}
                   onChange={handleInputChange}
                   placeholder="GFG username"
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none transition-colors"
                 />
               </div>
 
-              <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <div className="flex flex-col gap-1.5">
                 <label className="text-4xs font-bold uppercase tracking-wider text-slate-400">HackerRank Username</label>
                 <input
                   type="text"
@@ -728,7 +942,31 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
                   value={formData.hackerrankHandle}
                   onChange={handleInputChange}
                   placeholder="HackerRank username"
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors"
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none transition-colors"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-4xs font-bold uppercase tracking-wider text-slate-400">Coding Ninjas Username</label>
+                <input
+                  type="text"
+                  name="codingNinjasHandle"
+                  value={formData.codingNinjasHandle}
+                  onChange={handleInputChange}
+                  placeholder="Coding Ninjas username"
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none transition-colors"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <label className="text-4xs font-bold uppercase tracking-wider text-slate-400">HackerEarth Username</label>
+                <input
+                  type="text"
+                  name="hackerEarthHandle"
+                  value={formData.hackerEarthHandle}
+                  onChange={handleInputChange}
+                  placeholder="HackerEarth username"
+                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-2 px-3 text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none transition-colors"
                 />
               </div>
             </div>
@@ -736,7 +974,7 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
 
           {/* Group 3: Recommendation Tier */}
           <div className="flex flex-col gap-4">
-            <h3 className="font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2.5 my-0">
+            <h3 className="font-bold text-slate-850 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2.5 my-0">
               Proficiency Level
             </h3>
 
@@ -757,7 +995,7 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
 
           {/* Group 4: Topic Selection */}
           <div className="flex flex-col gap-4">
-            <h3 className="font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2.5 my-0">
+            <h3 className="font-bold text-slate-850 dark:text-slate-200 border-b border-slate-100 dark:border-slate-800 pb-2.5 my-0">
               Studied DSA Core Areas
             </h3>
 
@@ -771,11 +1009,11 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
                     onClick={() => handleToggleTopic(topic.name)}
                     className={`p-3 border text-left flex items-center gap-2.5 rounded-lg transition-all ${
                       isChecked
-                        ? "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-500 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400"
-                        : "bg-slate-50 dark:bg-slate-800/40 border-slate-250 dark:border-slate-700 text-slate-500 dark:text-slate-400"
+                        ? "bg-indigo-50 dark:bg-indigo-950/20 border-indigo-500 dark:border-indigo-400 text-indigo-600 dark:text-indigo-400 animate-pulse-once"
+                        : "bg-slate-50 dark:bg-slate-800/40 border-slate-250 dark:border-slate-700 text-slate-550 dark:text-slate-400"
                     }`}
                   >
-                    <div className="w-3.5 h-3.5 rounded border border-slate-300 dark:border-slate-650 flex items-center justify-center shrink-0">
+                    <div className="w-3.5 h-3.5 rounded border border-slate-350 dark:border-slate-650 flex items-center justify-center shrink-0">
                       {isChecked && <div className="w-2 h-2 rounded bg-indigo-500" />}
                     </div>
                     <span className="font-medium truncate">{topic.name}</span>
@@ -798,10 +1036,10 @@ const EditProfileModal = ({ onClose, onSuccess, onError, majorTopics }) => {
             <button
               type="submit"
               disabled={isSaving}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
-              {isSaving ? "Saving Changes..." : "Save Changes"}
+              {isSaving ? "Saving..." : "Save Changes"}
             </button>
           </div>
         </form>

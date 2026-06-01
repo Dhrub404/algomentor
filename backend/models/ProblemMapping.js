@@ -8,7 +8,7 @@ const ProblemMappingSchema = new mongoose.Schema({
   platform: { 
     type: String, 
     required: true, 
-    enum: ["codeforces", "leetcode"] 
+    enum: ["leetcode", "codeforces", "codechef", "geeksforgeeks", "hackerrank", "codingninjas", "hackerearth"] 
   },
   title: { 
     type: String, 
