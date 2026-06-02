@@ -682,7 +682,7 @@ const Profile = () => {
                       <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex flex-col gap-1.5">
                         <span className="text-2xs text-slate-400 italic">Data unavailable</span>
                         <div className="text-5xs text-slate-555 dark:text-slate-500 font-mono mt-2">
-                          Unable to sync platform data
+                          Temporarily unable to fetch platform data
                         </div>
                       </div>
                     )
@@ -772,7 +772,7 @@ const Profile = () => {
                       <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex flex-col gap-1.5">
                         <span className="text-2xs text-slate-400 italic">Data unavailable</span>
                         <div className="text-5xs text-slate-555 dark:text-slate-500 font-mono mt-2">
-                          Unable to sync platform data
+                          Temporarily unable to fetch platform data
                         </div>
                       </div>
                     )
@@ -865,7 +865,7 @@ const Profile = () => {
                       <div className="border-t border-slate-100 dark:border-slate-850 pt-4 flex flex-col gap-1.5">
                         <span className="text-2xs text-slate-400 italic">Unable to fetch HackerRank stats</span>
                         <div className="text-5xs text-slate-555 dark:text-slate-500 font-mono mt-2">
-                          Unable to sync platform data
+                          Temporarily unable to fetch platform data
                         </div>
                       </div>
                     )

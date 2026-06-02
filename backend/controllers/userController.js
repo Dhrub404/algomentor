@@ -100,25 +100,76 @@ const syncPlatformData = async (user) => {
   }
 
   try {
-    // 1. Fetch raw data from connected platforms in parallel
+    // 0. Load existing UserProgress to check cache
+    let userProgress = await UserProgress.findOne({ userId: user._id });
+    if (!userProgress) {
+      userProgress = new UserProgress({ userId: user._id, platformStats: new Map() });
+    }
+
+    const isCacheValid = (platformId, handle) => {
+      if (!userProgress || !userProgress.platformStats) return false;
+      const cached = typeof userProgress.platformStats.get === "function"
+        ? userProgress.platformStats.get(platformId)
+        : userProgress.platformStats[platformId];
+      if (!cached || cached.error) return false;
+      if (cached.username !== handle) return false;
+      
+      const fetchedAt = cached.fetchedAt;
+      if (!fetchedAt) return false;
+      
+      const ageMs = Date.now() - new Date(fetchedAt).getTime();
+      return ageMs < 15 * 60 * 1000; // 15 minutes TTL
+    };
+
+    const getCachedData = (platformId) => {
+      return typeof userProgress.platformStats.get === "function"
+        ? userProgress.platformStats.get(platformId)
+        : userProgress.platformStats[platformId];
+    };
+
+    const cfDataCached = cfHandle && isCacheValid("codeforces", cfHandle);
+    const lcDataCached = lcHandle && isCacheValid("leetcode", lcHandle);
+    const ccDataCached = ccHandle && isCacheValid("codechef", ccHandle);
+    const gfgDataCached = gfgHandle && isCacheValid("geeksforgeeks", gfgHandle);
+    const hrDataCached = hrHandle && isCacheValid("hackerrank", hrHandle);
+    const cnDataCached = cnHandle && isCacheValid("codingninjas", cnHandle);
+    const heDataCached = heHandle && isCacheValid("hackerearth", heHandle);
+
+    // 1. Fetch raw data from connected platforms in parallel (only if not cached)
     const [cfRaw, lcRaw, ccRaw, gfgRaw, hrRaw, cnRaw, heRaw] = await Promise.all([
-      cfHandle ? getCodeforcesData(cfHandle) : Promise.resolve(null),
-      lcHandle ? getLeetCodeData(lcHandle) : Promise.resolve(null),
-      ccHandle ? getCodeChefData(ccHandle) : Promise.resolve(null),
-      gfgHandle ? getGeeksForGeeksData(gfgHandle) : Promise.resolve(null),
-      hrHandle ? getHackerRankData(hrHandle) : Promise.resolve(null),
-      cnHandle ? getCodingNinjasData(cnHandle) : Promise.resolve(null),
-      heHandle ? getHackerEarthData(heHandle) : Promise.resolve(null)
+      (cfHandle && !cfDataCached) ? getCodeforcesData(cfHandle) : Promise.resolve(null),
+      (lcHandle && !lcDataCached) ? getLeetCodeData(lcHandle) : Promise.resolve(null),
+      (ccHandle && !ccDataCached) ? getCodeChefData(ccHandle) : Promise.resolve(null),
+      (gfgHandle && !gfgDataCached) ? getGeeksForGeeksData(gfgHandle) : Promise.resolve(null),
+      (hrHandle && !hrDataCached) ? getHackerRankData(hrHandle) : Promise.resolve(null),
+      (cnHandle && !cnDataCached) ? getCodingNinjasData(cnHandle) : Promise.resolve(null),
+      (heHandle && !heDataCached) ? getHackerEarthData(heHandle) : Promise.resolve(null)
     ]);
 
-    // 2. Normalize data
-    const cfData = cfRaw ? normalizeData("codeforces", cfRaw) : null;
-    const lcData = lcRaw ? normalizeData("leetcode", lcRaw) : null;
-    const ccData = ccRaw ? normalizeData("codechef", ccRaw) : null;
-    const gfgData = gfgRaw ? normalizeData("geeksforgeeks", gfgRaw) : null;
-    const hrData = hrRaw ? normalizeData("hackerrank", hrRaw) : null;
-    const cnData = cnRaw ? normalizeData("codingninjas", cnRaw) : null;
-    const heData = heRaw ? normalizeData("hackerearth", heRaw) : null;
+    // 2. Normalize fresh data
+    const cfDataFresh = cfRaw ? normalizeData("codeforces", cfRaw) : null;
+    const lcDataFresh = lcRaw ? normalizeData("leetcode", lcRaw) : null;
+    const ccDataFresh = ccRaw ? normalizeData("codechef", ccRaw) : null;
+    const gfgDataFresh = gfgRaw ? normalizeData("geeksforgeeks", gfgRaw) : null;
+    const hrDataFresh = hrRaw ? normalizeData("hackerrank", hrRaw) : null;
+    const cnDataFresh = cnRaw ? normalizeData("codingninjas", cnRaw) : null;
+    const heDataFresh = heRaw ? normalizeData("hackerearth", heRaw) : null;
+
+    // Resolve final data (fresh or cached)
+    const cfData = cfDataCached ? getCachedData("codeforces") : cfDataFresh;
+    const lcData = lcDataCached ? getCachedData("leetcode") : lcDataFresh;
+    const ccData = ccDataCached ? getCachedData("codechef") : ccDataFresh;
+    const gfgData = gfgDataCached ? getCachedData("geeksforgeeks") : gfgDataFresh;
+    const hrData = hrDataCached ? getCachedData("hackerrank") : hrDataFresh;
+    const cnData = cnDataCached ? getCachedData("codingninjas") : cnDataFresh;
+    const heData = heDataCached ? getCachedData("hackerearth") : heDataFresh;
+
+    // Debugging logs (SECTION 9 requirements)
+    const codechefData = ccData;
+    const hackerRankData = hrData;
+    console.log("CodeChef fetch result:", codechefData);
+    console.log("GFG fetch result:", gfgData);
+    console.log("HackerRank fetch result:", hackerRankData);
 
     // 3. Aggregate all normalized submissions
     let allSubmissions = [];
@@ -130,21 +181,15 @@ const syncPlatformData = async (user) => {
     if (cnData && cnData.submissions) allSubmissions = allSubmissions.concat(cnData.submissions);
     if (heData && heData.submissions) allSubmissions = allSubmissions.concat(heData.submissions);
 
-    // 4. Update or Create UserProgress
-    let userProgress = await UserProgress.findOne({ userId: user._id });
-    if (!userProgress) {
-      userProgress = new UserProgress({ userId: user._id });
-    }
-
     // Save platformStats map
     userProgress.platformStats = new Map();
-    if (cfHandle && cfData) userProgress.platformStats.set("codeforces", cfData);
-    if (lcHandle && lcData) userProgress.platformStats.set("leetcode", lcData);
-    if (ccHandle && ccData) userProgress.platformStats.set("codechef", ccData);
-    if (gfgHandle && gfgData) userProgress.platformStats.set("geeksforgeeks", gfgData);
-    if (hrHandle && hrData) userProgress.platformStats.set("hackerrank", hrData);
-    if (cnHandle && cnData) userProgress.platformStats.set("codingninjas", cnData);
-    if (heHandle && heData) userProgress.platformStats.set("hackerearth", heData);
+    if (cfHandle) userProgress.platformStats.set("codeforces", cfData || { error: true, fetchedAt: new Date() });
+    if (lcHandle) userProgress.platformStats.set("leetcode", lcData || { error: true, fetchedAt: new Date() });
+    if (ccHandle) userProgress.platformStats.set("codechef", ccData || { error: true, fetchedAt: new Date() });
+    if (gfgHandle) userProgress.platformStats.set("geeksforgeeks", gfgData || { error: true, fetchedAt: new Date() });
+    if (hrHandle) userProgress.platformStats.set("hackerrank", hrData || { error: true, fetchedAt: new Date() });
+    if (cnHandle) userProgress.platformStats.set("codingninjas", cnData || { error: true, fetchedAt: new Date() });
+    if (heHandle) userProgress.platformStats.set("hackerearth", heData || { error: true, fetchedAt: new Date() });
 
     // Merge submissions
     const existingSubmissions = userProgress.submissions || [];
