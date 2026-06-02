@@ -1,100 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const User = require("../models/User");
-const UserProgress = require("../models/UserProgress");
-const TopicPerformance = require("../models/TopicPerformance");
+const { getLeaderboard } = require("../controllers/leaderboardController");
 const protect = require("../middleware/authMiddleware");
-const { calculateLeaderboardScore } = require("../utils/scoreCalculator");
 
 // @desc    Get leaderboard stats
 // @route   GET /api/leaderboard
 // @access  Private
-router.get("/", protect, async (req, res) => {
-  try {
-    const users = await User.find({}).select(
-      "username name currentLevel codeforcesHandle leetcodeHandle codechefHandle gfgHandle hackerrankHandle codingNinjasHandle hackerEarthHandle branch batch college usn createdAt"
-    );
-    const progressList = await UserProgress.find({});
-    const performances = await TopicPerformance.find({});
-
-    const leaderboardData = users.map((user) => {
-      const progress = progressList.find(
-        (p) => p.userId.toString() === user._id.toString()
-      );
-      const userPerfs = performances.filter(
-        (p) => p.userId.toString() === user._id.toString()
-      );
-
-      const solvedCount = progress ? progress.solvedProblems.length : 0;
-
-      let streak = 0;
-      if (progress && progress.lastActivityDate) {
-        const diffTime = Math.abs(Date.now() - new Date(progress.lastActivityDate).getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (diffDays <= 2) {
-          streak = Math.max(1, (solvedCount % 7) + 1); 
-        }
-      }
-
-      // Compute solved problems per platform for this user
-      const solvedByPlatform = {
-        leetcode: 0,
-        codeforces: 0,
-        codechef: 0,
-        geeksforgeeks: 0,
-        hackerrank: 0,
-        codingninjas: 0,
-        hackerearth: 0
-      };
-
-      userPerfs.forEach((perf) => {
-        const platform = perf.platform;
-        const solved = perf.totalSolved || 0;
-        if (solvedByPlatform[platform] !== undefined) {
-          solvedByPlatform[platform] += solved;
-        } else if (platform === "combined") {
-          solvedByPlatform.leetcode += Math.round(solved * 0.5);
-          solvedByPlatform.codeforces += Math.round(solved * 0.5);
-        }
-      });
-
-      const finalScore = calculateLeaderboardScore(user, {
-        solvedCount,
-        streak,
-        solvedByPlatform
-      });
-
-      return {
-        _id: user._id,
-        username: user.username,
-        name: user.name || "",
-        currentLevel: user.currentLevel,
-        codeforcesHandle: user.codeforcesHandle || "",
-        leetcodeHandle: user.leetcodeHandle || "",
-        codechefHandle: user.codechefHandle || "",
-        gfgHandle: user.gfgHandle || "",
-        hackerrankHandle: user.hackerrankHandle || "",
-        codingNinjasHandle: user.codingNinjasHandle || "",
-        hackerEarthHandle: user.hackerEarthHandle || "",
-        branch: user.branch || "",
-        batch: user.batch || "",
-        college: user.college || "",
-        solvedCount,
-        score: finalScore,
-        finalScore,
-        streak,
-        createdAt: user.createdAt
-      };
-    });
-
-    // Default sort by finalScore descending
-    leaderboardData.sort((a, b) => b.finalScore - a.finalScore);
-
-    res.json(leaderboardData);
-  } catch (error) {
-    console.error("Leaderboard error:", error.message);
-    res.status(500).json({ message: "Server error" });
-  }
-});
+router.get("/", protect, getLeaderboard);
 
 module.exports = router;

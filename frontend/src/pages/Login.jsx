@@ -37,6 +37,7 @@ const Login = () => {
       await login(email, password);
       navigate("/dashboard");
     } catch (err) {
+      console.error("Login attempt failed:", err);
       setError(err);
     } finally {
       setLoggingIn(false);

@@ -113,21 +113,172 @@ const seedDummyUser = async () => {
       return name;
     };
 
-    // Delete existing dummy user if any
-    const email = "test@algomentor.com";
-    console.log(`Clearing existing dummy data for ${email}...`);
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      await UserProgress.deleteOne({ userId: existingUser._id });
-      await TopicPerformance.deleteMany({ userId: existingUser._id });
-      await User.deleteOne({ _id: existingUser._id });
+    // Delete existing dummy users if any
+    const emails = ["test@algomentor.com", "dhruvmahajan174@algomentor.com"];
+    console.log(`Clearing existing dummy data for ${emails.join(", ")}...`);
+    const existingUsers = await User.find({ email: { $in: emails } });
+    for (const u of existingUsers) {
+      await UserProgress.deleteOne({ userId: u._id });
+      await TopicPerformance.deleteMany({ userId: u._id });
+      await User.deleteOne({ _id: u._id });
     }
 
-    // Create User
+    // Helper to seed progress and performances for a user
+    const seedUserProgressAndPerformance = async (targetUser, stats) => {
+      // Create UserProgress platformStats Map
+      const platformStatsMap = new Map();
+      if (stats) {
+        if (stats.leetcode) platformStatsMap.set("leetcode", { username: targetUser.leetcodeHandle, ...stats.leetcode, fetchedAt: new Date() });
+        if (stats.codeforces) platformStatsMap.set("codeforces", { username: targetUser.codeforcesHandle, ...stats.codeforces, fetchedAt: new Date() });
+        if (stats.codechef) platformStatsMap.set("codechef", { username: targetUser.codechefHandle, ...stats.codechef, fetchedAt: new Date() });
+        if (stats.geeksforgeeks) platformStatsMap.set("geeksforgeeks", { username: targetUser.gfgHandle, ...stats.geeksforgeeks, fetchedAt: new Date() });
+        if (stats.hackerrank) platformStatsMap.set("hackerrank", { username: targetUser.hackerrankHandle, ...stats.hackerrank, fetchedAt: new Date() });
+      }
+
+      // Fetch real problems to associate
+      const arraysStage1Probs = await ProblemMapping.find({
+        topic: "Arrays",
+        subtopic: "Stage 1 — Array Basics & Traversal"
+      });
+      const stringsStage1Probs = await ProblemMapping.find({
+        topic: "Strings",
+        subtopic: "Stage 1 — String Basics"
+      });
+      const hashingStage1Probs = await ProblemMapping.find({
+        topic: "Hashing",
+        subtopic: "Stage 1 — HashMap Basics"
+      });
+      const treesStage1Probs = await ProblemMapping.find({
+        topic: "Trees",
+        subtopic: "Stage 1 — Tree Traversals (BFS/DFS)"
+      }).limit(2);
+      const graphsStage1Probs = await ProblemMapping.find({
+        topic: "Graphs",
+        subtopic: "Stage 1 — Graph Representation"
+      }).limit(2);
+
+      const solvedProblemsList = [
+        ...arraysStage1Probs,
+        ...stringsStage1Probs,
+        ...hashingStage1Probs,
+        ...treesStage1Probs,
+        ...graphsStage1Probs
+      ];
+      const solvedProblemIds = solvedProblemsList.map((p) => p._id);
+
+      // Initial unlocks and completed
+      const rawUnlocked = [
+        "Array Basics", "Prefix Sum", "Sliding Window Fixed",
+        "Sliding Window Variable", "Two Pointers", "Kadane Algorithm",
+        "String Basics", "String Manipulation", "Anagrams",
+        "HashMap Basics", "Frequency Count", "Two Sum Variants",
+        "Classic Binary Search", "Search Rotated Array",
+        "Recursion Basics", "Subset Generation",
+        "LL Basics", "LL Reversal",
+        "Stage 1 — Tree Traversals (BFS/DFS)",
+        "Stage 1 — Graph Representation"
+      ];
+      const rawCompleted = ["Array Basics", "String Basics", "HashMap Basics"];
+
+      const normalizedUnlocked = Array.from(new Set(rawUnlocked.map(getDbName)));
+      const normalizedCompleted = Array.from(new Set(rawCompleted.map(getDbName)));
+
+      const rawMastery = {
+        "Array Basics": 91,
+        "Prefix Sum": 82,
+        "Sliding Window Fixed": 45,
+        "Sliding Window Variable": 28,
+        "Two Pointers": 31,
+        "Kadane Algorithm": 67,
+        "String Basics": 88,
+        "String Manipulation": 52,
+        "Anagrams": 35,
+        "HashMap Basics": 79,
+        "Frequency Count": 61,
+        "Two Sum Variants": 44,
+        "Classic Binary Search": 73,
+        "Search Rotated Array": 38,
+        "Recursion Basics": 55,
+        "Subset Generation": 22,
+        "LL Basics": 69,
+        "LL Reversal": 41,
+        "Stage 1 — Tree Traversals (BFS/DFS)": 40,
+        "Stage 1 — Graph Representation": 50
+      };
+
+      const progressMastery = new Map();
+      Object.keys(rawMastery).forEach(key => {
+        progressMastery.set(getDbName(key), rawMastery[key]);
+      });
+
+      // Create UserProgress
+      const progress = new UserProgress({
+        userId: targetUser._id,
+        unlockedSubtopics: normalizedUnlocked,
+        completedSubtopics: normalizedCompleted,
+        mastery: progressMastery,
+        solvedProblems: solvedProblemIds,
+        platformStats: platformStatsMap,
+        lastActivityDate: new Date()
+      });
+
+      await progress.save();
+      console.log(`UserProgress created successfully for ${targetUser.username}!`);
+
+      // Create TopicPerformance records
+      const subtopicData = [
+        { subtopic: "Array Basics", topic: "Arrays", masteryScore: 91, weaknessScore: 9, accuracy: 100, totalSolved: 5, totalAttempted: 5, daysAgo: 2, revisionNeeded: false },
+        { subtopic: "Prefix Sum", topic: "Arrays", masteryScore: 82, weaknessScore: 18, accuracy: 85, totalSolved: 14, totalAttempted: 17, daysAgo: 5, revisionNeeded: false },
+        { subtopic: "Sliding Window Fixed", topic: "Arrays", masteryScore: 45, weaknessScore: 55, accuracy: 48, totalSolved: 6, totalAttempted: 13, daysAgo: 8, revisionNeeded: false },
+        { subtopic: "Sliding Window Variable", topic: "Arrays", masteryScore: 28, weaknessScore: 72, accuracy: 30, totalSolved: 3, totalAttempted: 10, daysAgo: 20, revisionNeeded: true },
+        { subtopic: "Two Pointers", topic: "Arrays", masteryScore: 31, weaknessScore: 69, accuracy: 33, totalSolved: 4, totalAttempted: 12, daysAgo: 15, revisionNeeded: true },
+        { subtopic: "Kadane Algorithm", topic: "Arrays", masteryScore: 67, weaknessScore: 33, accuracy: 70, totalSolved: 8, totalAttempted: 12, daysAgo: 3, revisionNeeded: false },
+        { subtopic: "String Basics", topic: "Strings", masteryScore: 88, weaknessScore: 12, accuracy: 100, totalSolved: 5, totalAttempted: 5, daysAgo: 1, revisionNeeded: false },
+        { subtopic: "String Manipulation", topic: "Strings", masteryScore: 52, weaknessScore: 48, accuracy: 54, totalSolved: 7, totalAttempted: 13, daysAgo: 10, revisionNeeded: false },
+        { subtopic: "Anagrams", topic: "Strings", masteryScore: 35, weaknessScore: 65, accuracy: 36, totalSolved: 4, totalAttempted: 11, daysAgo: 18, revisionNeeded: true },
+        { subtopic: "HashMap Basics", topic: "Hashing", masteryScore: 79, weaknessScore: 21, accuracy: 100, totalSolved: 5, totalAttempted: 5, daysAgo: 4, revisionNeeded: false },
+        { subtopic: "Frequency Count", topic: "Hashing", masteryScore: 61, weaknessScore: 39, accuracy: 62, totalSolved: 9, totalAttempted: 15, daysAgo: 7, revisionNeeded: false },
+        { subtopic: "Two Sum Variants", topic: "Hashing", masteryScore: 44, weaknessScore: 56, accuracy: 45, totalSolved: 5, totalAttempted: 11, daysAgo: 12, revisionNeeded: false },
+        { subtopic: "Classic Binary Search", topic: "Binary Search", masteryScore: 73, weaknessScore: 27, accuracy: 75, totalSolved: 11, totalAttempted: 15, daysAgo: 6, revisionNeeded: false },
+        { subtopic: "Search Rotated Array", topic: "Binary Search", masteryScore: 38, weaknessScore: 62, accuracy: 40, totalSolved: 4, totalAttempted: 10, daysAgo: 22, revisionNeeded: true },
+        { subtopic: "Recursion Basics", topic: "Recursion & Backtracking", masteryScore: 55, weaknessScore: 45, accuracy: 56, totalSolved: 8, totalAttempted: 14, daysAgo: 9, revisionNeeded: false },
+        { subtopic: "Subset Generation", topic: "Recursion & Backtracking", masteryScore: 22, weaknessScore: 78, accuracy: 24, totalSolved: 2, totalAttempted: 9, daysAgo: 25, revisionNeeded: true },
+        { subtopic: "LL Basics", topic: "Linked List", masteryScore: 69, weaknessScore: 31, accuracy: 70, totalSolved: 10, totalAttempted: 14, daysAgo: 5, revisionNeeded: false },
+        { subtopic: "LL Reversal", topic: "Linked List", masteryScore: 41, weaknessScore: 59, accuracy: 42, totalSolved: 4, totalAttempted: 10, daysAgo: 16, revisionNeeded: true },
+        { subtopic: "Stage 1 — Tree Traversals (BFS/DFS)", topic: "Trees", masteryScore: 40, weaknessScore: 60, accuracy: 40, totalSolved: 2, totalAttempted: 5, daysAgo: 1, revisionNeeded: false },
+        { subtopic: "Stage 1 — Graph Representation", topic: "Graphs", masteryScore: 50, weaknessScore: 50, accuracy: 50, totalSolved: 2, totalAttempted: 4, daysAgo: 1, revisionNeeded: false }
+      ];
+
+      const performanceRecords = subtopicData.map((data) => {
+        return new TopicPerformance({
+          userId: targetUser._id,
+          subtopic: getDbName(data.subtopic),
+          topic: data.topic,
+          masteryScore: data.masteryScore,
+          weaknessScore: data.weaknessScore,
+          accuracy: data.accuracy,
+          totalSolved: data.totalSolved,
+          totalAttempted: data.totalAttempted,
+          lastPracticed: new Date(Date.now() - data.daysAgo * 24 * 60 * 60 * 1000),
+          revisionNeeded: data.revisionNeeded,
+          platform: "combined"
+        });
+      });
+
+      await TopicPerformance.insertMany(performanceRecords);
+      console.log(`TopicPerformance records created successfully for ${targetUser.username}!`);
+
+      // Run the unlock engine for targetUser so their unlocks are 100% correct from the start
+      console.log(`Running runUnlockEngine for ${targetUser.username}...`);
+      const newlyUnlocked = await runUnlockEngine(targetUser._id);
+      console.log(`Newly unlocked subtopics by engine run for ${targetUser.username}:`, newlyUnlocked);
+    };
+
+    // Create User (testuser)
     const hashedPassword = await bcrypt.hash("Test@123", 10);
     const user = new User({
       username: "testuser",
-      email: email,
+      email: "test@algomentor.com",
       password: hashedPassword,
       currentLevel: "intermediate",
       studiedTopics: [
@@ -142,157 +293,127 @@ const seedDummyUser = async () => {
       name: "Test User",
       college: "AlgoMentor Academy",
       branch: "Computer Science",
-      batch: "2026"
+      batch: "2026",
+      platformStats: {
+        leetcode: {
+          handle: "testuser_lc",
+          solved: 148,
+          easy: 87,
+          medium: 56,
+          hard: 5,
+          lastSynced: new Date()
+        },
+        codeforces: {
+          handle: "testuser_cf",
+          rating: 1100,
+          maxRating: 1180,
+          rank: "pupil",
+          solved: 45,
+          contests: 8,
+          lastSynced: new Date()
+        },
+        codechef: {
+          handle: "testuser_cc",
+          rating: 1083,
+          highest: 1083,
+          stars: 1,
+          solved: 32,
+          lastSynced: new Date()
+        },
+        gfg: {
+          handle: "testuser_gfg",
+          score: 145,
+          solved: 68,
+          instituteRank: 12,
+          lastSynced: new Date()
+        },
+        hackerrank: {
+          handle: "testuser_hr",
+          score: 10,
+          level: 5,
+          badges: 1,
+          lastSynced: new Date()
+        }
+      }
     });
-
-    // Attach platform stats
-    user.set("platformStats", {
-      leetcode: { solved: 148, easy: 87, medium: 56, hard: 5, contestRating: 1420 },
-      codeforces: { rating: 1100, maxRating: 1180, rank: "pupil", solved: 45, contests: 8 },
-      codechef: { rating: 1083, highest: 1083, stars: 1, solved: 32 },
-      gfg: { score: 145, solved: 68, instituteRank: 12 },
-      hackerrank: { score: 10, level: 5, badges: 1 }
-    });
-
     await user.save();
     console.log("User testuser created successfully!");
 
-    // Fetch real problems to associate to testuser
-    const arraysStage1Probs = await ProblemMapping.find({
-      topic: "Arrays",
-      subtopic: "Stage 1 — Array Basics & Traversal"
-    });
-    const stringsStage1Probs = await ProblemMapping.find({
-      topic: "Strings",
-      subtopic: "Stage 1 — String Basics"
-    });
-    const hashingStage1Probs = await ProblemMapping.find({
-      topic: "Hashing",
-      subtopic: "Stage 1 — HashMap Basics"
-    });
-    const treesStage1Probs = await ProblemMapping.find({
-      topic: "Trees",
-      subtopic: "Stage 1 — Tree Traversals (BFS/DFS)"
-    }).limit(2);
-    const graphsStage1Probs = await ProblemMapping.find({
-      topic: "Graphs",
-      subtopic: "Stage 1 — Graph Representation"
-    }).limit(2);
-
-    const solvedProblemsList = [
-      ...arraysStage1Probs,
-      ...stringsStage1Probs,
-      ...hashingStage1Probs,
-      ...treesStage1Probs,
-      ...graphsStage1Probs
-    ];
-    const solvedProblemIds = solvedProblemsList.map((p) => p._id);
-
-    // Initial unlocks and completed
-    const rawUnlocked = [
-      "Array Basics", "Prefix Sum", "Sliding Window Fixed",
-      "Sliding Window Variable", "Two Pointers", "Kadane Algorithm",
-      "String Basics", "String Manipulation", "Anagrams",
-      "HashMap Basics", "Frequency Count", "Two Sum Variants",
-      "Classic Binary Search", "Search Rotated Array",
-      "Recursion Basics", "Subset Generation",
-      "LL Basics", "LL Reversal",
-      "Stage 1 — Tree Traversals (BFS/DFS)",
-      "Stage 1 — Graph Representation"
-    ];
-    const rawCompleted = ["Array Basics", "String Basics", "HashMap Basics"];
-
-    const normalizedUnlocked = Array.from(new Set(rawUnlocked.map(getDbName)));
-    const normalizedCompleted = Array.from(new Set(rawCompleted.map(getDbName)));
-
-    const rawMastery = {
-      "Array Basics": 91,
-      "Prefix Sum": 82,
-      "Sliding Window Fixed": 45,
-      "Sliding Window Variable": 28,
-      "Two Pointers": 31,
-      "Kadane Algorithm": 67,
-      "String Basics": 88,
-      "String Manipulation": 52,
-      "Anagrams": 35,
-      "HashMap Basics": 79,
-      "Frequency Count": 61,
-      "Two Sum Variants": 44,
-      "Classic Binary Search": 73,
-      "Search Rotated Array": 38,
-      "Recursion Basics": 55,
-      "Subset Generation": 22,
-      "LL Basics": 69,
-      "LL Reversal": 41,
-      "Stage 1 — Tree Traversals (BFS/DFS)": 40,
-      "Stage 1 — Graph Representation": 50
+    const testuserStats = {
+      leetcode: { solved: 148, easy: 87, medium: 56, hard: 5, contestRating: 1420 },
+      codeforces: { rating: 1100, maxRating: 1180, rank: "pupil", solved: 45, contests: 8 },
+      codechef: { rating: 1083, highest: 1083, stars: 1, solved: 32 },
+      geeksforgeeks: { score: 145, solved: 68, instituteRank: 12 },
+      hackerrank: { score: 10, level: 5, badges: 1 }
     };
+    await seedUserProgressAndPerformance(user, testuserStats);
 
-    const progressMastery = new Map();
-    Object.keys(rawMastery).forEach(key => {
-      progressMastery.set(getDbName(key), rawMastery[key]);
+    // Create User (dhruvmahajan174)
+    const dhruvHashedPassword = await bcrypt.hash("Test@123", 10);
+    const dhruvUser = new User({
+      username: "dhruvmahajan174",
+      email: "dhruvmahajan174@algomentor.com",
+      password: dhruvHashedPassword,
+      currentLevel: "intermediate",
+      studiedTopics: [
+        "Arrays", "Strings", "Hashing", 
+        "Binary Search", "Recursion", "Linked List"
+      ],
+      leetcodeHandle: "dhruvmahajan714",
+      codeforcesHandle: "dhruvmahajan174",
+      codechefHandle: "dhrub_mahajan",
+      gfgHandle: "dhruvmahajan123",
+      hackerrankHandle: "dhruvmahajan714",
+      name: "Dhruv Mahajan",
+      college: "AlgoMentor Academy",
+      branch: "Computer Science",
+      batch: "2026",
+      platformStats: {
+        leetcode: {
+          handle: "dhruvmahajan714",
+          solved: 148,
+          easy: 87,
+          medium: 56,
+          hard: 5,
+          lastSynced: new Date()
+        },
+        codeforces: {
+          handle: "dhruvmahajan174",
+          rating: 1817,
+          maxRating: 1850,
+          rank: "Expert",
+          solved: 215,
+          contests: 35,
+          lastSynced: new Date()
+        },
+        codechef: {
+          handle: "dhrub_mahajan",
+          rating: 1083,
+          highest: 1083,
+          stars: 1,
+          solved: 32,
+          lastSynced: new Date()
+        },
+        gfg: {
+          handle: "dhruvmahajan123",
+          score: 145,
+          solved: 68,
+          instituteRank: 12,
+          lastSynced: new Date()
+        }
+      }
     });
+    await dhruvUser.save();
+    console.log("User dhruvmahajan174 created successfully!");
 
-    // Create UserProgress
-    const progress = new UserProgress({
-      userId: user._id,
-      unlockedSubtopics: normalizedUnlocked,
-      completedSubtopics: normalizedCompleted,
-      mastery: progressMastery,
-      solvedProblems: solvedProblemIds,
-      lastActivityDate: new Date()
-    });
-
-    await progress.save();
-    console.log("UserProgress created successfully!");
-
-    // Create TopicPerformance records
-    const subtopicData = [
-      { subtopic: "Array Basics", topic: "Arrays", masteryScore: 91, weaknessScore: 9, accuracy: 100, totalSolved: 5, totalAttempted: 5, daysAgo: 2, revisionNeeded: false },
-      { subtopic: "Prefix Sum", topic: "Arrays", masteryScore: 82, weaknessScore: 18, accuracy: 85, totalSolved: 14, totalAttempted: 17, daysAgo: 5, revisionNeeded: false },
-      { subtopic: "Sliding Window Fixed", topic: "Arrays", masteryScore: 45, weaknessScore: 55, accuracy: 48, totalSolved: 6, totalAttempted: 13, daysAgo: 8, revisionNeeded: false },
-      { subtopic: "Sliding Window Variable", topic: "Arrays", masteryScore: 28, weaknessScore: 72, accuracy: 30, totalSolved: 3, totalAttempted: 10, daysAgo: 20, revisionNeeded: true },
-      { subtopic: "Two Pointers", topic: "Arrays", masteryScore: 31, weaknessScore: 69, accuracy: 33, totalSolved: 4, totalAttempted: 12, daysAgo: 15, revisionNeeded: true },
-      { subtopic: "Kadane Algorithm", topic: "Arrays", masteryScore: 67, weaknessScore: 33, accuracy: 70, totalSolved: 8, totalAttempted: 12, daysAgo: 3, revisionNeeded: false },
-      { subtopic: "String Basics", topic: "Strings", masteryScore: 88, weaknessScore: 12, accuracy: 100, totalSolved: 5, totalAttempted: 5, daysAgo: 1, revisionNeeded: false },
-      { subtopic: "String Manipulation", topic: "Strings", masteryScore: 52, weaknessScore: 48, accuracy: 54, totalSolved: 7, totalAttempted: 13, daysAgo: 10, revisionNeeded: false },
-      { subtopic: "Anagrams", topic: "Strings", masteryScore: 35, weaknessScore: 65, accuracy: 36, totalSolved: 4, totalAttempted: 11, daysAgo: 18, revisionNeeded: true },
-      { subtopic: "HashMap Basics", topic: "Hashing", masteryScore: 79, weaknessScore: 21, accuracy: 100, totalSolved: 5, totalAttempted: 5, daysAgo: 4, revisionNeeded: false },
-      { subtopic: "Frequency Count", topic: "Hashing", masteryScore: 61, weaknessScore: 39, accuracy: 62, totalSolved: 9, totalAttempted: 15, daysAgo: 7, revisionNeeded: false },
-      { subtopic: "Two Sum Variants", topic: "Hashing", masteryScore: 44, weaknessScore: 56, accuracy: 45, totalSolved: 5, totalAttempted: 11, daysAgo: 12, revisionNeeded: false },
-      { subtopic: "Classic Binary Search", topic: "Binary Search", masteryScore: 73, weaknessScore: 27, accuracy: 75, totalSolved: 11, totalAttempted: 15, daysAgo: 6, revisionNeeded: false },
-      { subtopic: "Search Rotated Array", topic: "Binary Search", masteryScore: 38, weaknessScore: 62, accuracy: 40, totalSolved: 4, totalAttempted: 10, daysAgo: 22, revisionNeeded: true },
-      { subtopic: "Recursion Basics", topic: "Recursion & Backtracking", masteryScore: 55, weaknessScore: 45, accuracy: 56, totalSolved: 8, totalAttempted: 14, daysAgo: 9, revisionNeeded: false },
-      { subtopic: "Subset Generation", topic: "Recursion & Backtracking", masteryScore: 22, weaknessScore: 78, accuracy: 24, totalSolved: 2, totalAttempted: 9, daysAgo: 25, revisionNeeded: true },
-      { subtopic: "LL Basics", topic: "Linked List", masteryScore: 69, weaknessScore: 31, accuracy: 70, totalSolved: 10, totalAttempted: 14, daysAgo: 5, revisionNeeded: false },
-      { subtopic: "LL Reversal", topic: "Linked List", masteryScore: 41, weaknessScore: 59, accuracy: 42, totalSolved: 4, totalAttempted: 10, daysAgo: 16, revisionNeeded: true },
-      { subtopic: "Stage 1 — Tree Traversals (BFS/DFS)", topic: "Trees", masteryScore: 40, weaknessScore: 60, accuracy: 40, totalSolved: 2, totalAttempted: 5, daysAgo: 1, revisionNeeded: false },
-      { subtopic: "Stage 1 — Graph Representation", topic: "Graphs", masteryScore: 50, weaknessScore: 50, accuracy: 50, totalSolved: 2, totalAttempted: 4, daysAgo: 1, revisionNeeded: false }
-    ];
-
-    const performanceRecords = subtopicData.map((data) => {
-      return new TopicPerformance({
-        userId: user._id,
-        subtopic: getDbName(data.subtopic),
-        topic: data.topic,
-        masteryScore: data.masteryScore,
-        weaknessScore: data.weaknessScore,
-        accuracy: data.accuracy,
-        totalSolved: data.totalSolved,
-        totalAttempted: data.totalAttempted,
-        lastPracticed: new Date(Date.now() - data.daysAgo * 24 * 60 * 60 * 1000),
-        revisionNeeded: data.revisionNeeded,
-        platform: "combined"
-      });
-    });
-
-    await TopicPerformance.insertMany(performanceRecords);
-    console.log("TopicPerformance records created successfully!");
-
-    // Run the unlock engine for testuser so their unlocks are 100% correct from the start
-    console.log("Running runUnlockEngine for testuser...");
-    const newlyUnlocked = await runUnlockEngine(user._id);
-    console.log("Newly unlocked subtopics by engine run:", newlyUnlocked);
+    const dhruvStats = {
+      leetcode: { solved: 215, easy: 112, medium: 93, hard: 10, contestRating: 1640 },
+      codeforces: { rating: 1420, maxRating: 1450, rank: "specialist", solved: 125, contests: 15 },
+      codechef: { rating: 1675, highest: 1720, stars: 3, solved: 95 },
+      geeksforgeeks: { score: 420, solved: 185, instituteRank: 4 },
+      hackerrank: { score: 85, level: 12, badges: 4 }
+    };
+    await seedUserProgressAndPerformance(dhruvUser, dhruvStats);
 
     console.log("Seeding completed successfully!");
     mongoose.disconnect();

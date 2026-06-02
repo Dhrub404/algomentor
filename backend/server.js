@@ -13,6 +13,7 @@ const roadmapRoutes = require("./routes/roadmapRoutes");
 const contestRoutes = require("./routes/contestRoutes");
 const leaderboardRoutes = require("./routes/leaderboardRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 
 const app = express();
 
@@ -20,7 +21,11 @@ const app = express();
 connectDB();
 
 // Init Middleware
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 app.use(express.json());
 
 // Define Routes
@@ -32,6 +37,7 @@ app.use("/api/roadmap", roadmapRoutes);
 app.use("/api/contest", contestRoutes);
 app.use("/api/leaderboard", leaderboardRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.get("/", (req, res) => {
     res.send("API Running Successfully");

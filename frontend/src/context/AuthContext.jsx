@@ -1,6 +1,20 @@
 import React, { createContext, useState, useEffect } from "react";
 import axios from "axios";
 
+// Request interceptor to automatically attach JWT token if present
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {

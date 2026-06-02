@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import useAuth from "../hooks/useAuth";
 import WeaknessChart from "../components/WeaknessChart";
+import DecayAlert from "../components/DecayAlert";
 import api from "../services/api";
 import { getDifficultyColor } from "../utils/helpers";
 import {
@@ -39,7 +40,8 @@ if (!api.get) {
   api.get = (url, config) => {
     const token = localStorage.getItem("token");
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
-    return axios.get(`http://localhost:5000/api${url}`, {
+    const cleanUrl = url.startsWith("/api") ? url.slice(4) : url;
+    return axios.get(`http://localhost:5000/api${cleanUrl}`, {
       ...config,
       headers: { ...headers, ...config?.headers }
     });
@@ -89,7 +91,7 @@ const CustomTooltip = ({ active, payload }) => {
 };
 
 const Dashboard = () => {
-  const { user, progress, performances, refetchUser, connectHandles } = useAuth();
+  const { user, progress, performances, streakData, refetchUser, connectHandles } = useAuth();
   const [dailyData, setDailyData] = useState({ problems: [], revisionAlerts: [] });
   const [weaknessData, setWeaknessData] = useState(null);
   const [loadingDaily, setLoadingDaily] = useState(true);
@@ -199,14 +201,7 @@ const Dashboard = () => {
   const studiedCount = user?.studiedTopics?.length || 0;
 
   // Streak calculation
-  let streakCount = 0;
-  if (progress && progress.lastActivityDate) {
-    const diffTime = Math.abs(Date.now() - new Date(progress.lastActivityDate).getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (diffDays <= 2) {
-      streakCount = progress.solvedProblems ? (progress.solvedProblems.length % 7) + 1 : 1;
-    }
-  }
+  const streakCount = streakData?.currentStreak || 0;
 
   // Count strong areas (masteryScore >= 70) and weak ones (masteryScore < 40)
   const strongAreas = (performances || []).filter((p) => p.masteryScore >= 70);
@@ -295,6 +290,9 @@ const Dashboard = () => {
         </button>
       </div>
 
+      {/* Decay Alert notification */}
+      <DecayAlert userId={user?._id} />
+
       {/* Revision Alerts Banner (Dismissible) */}
       {!alertsDismissed && dailyData.revisionAlerts && dailyData.revisionAlerts.length > 0 && (
         <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 text-amber-800 dark:text-amber-400 text-xs flex items-start justify-between gap-3 shadow-2xs">
@@ -326,19 +324,91 @@ const Dashboard = () => {
       {/* Grid: Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Solved Count", value: solvedCount, icon: Trophy, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-950/10" },
-          { label: "Unlocked Scope", value: `${unlockedCount} / ${studiedCount || "0"}`, icon: Compass, color: "text-rose-500", bg: "bg-rose-50 dark:bg-rose-950/10" },
-          { label: "Streak Count", value: `${streakCount} Days`, icon: Flame, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950/10" },
-          { label: "Strong Areas", value: `${strongAreas.length} Skills`, icon: Award, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-950/10" }
+          { 
+            label: "Solved Count", 
+            value: solvedCount, 
+            icon: Trophy, 
+            color: "text-indigo-600 dark:text-indigo-400", 
+            bg: "bg-indigo-50 dark:bg-indigo-950/10",
+            renderDetails: () => (
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">
+                Across connected profiles
+              </span>
+            )
+          },
+          { 
+            label: "Unlocked Scope", 
+            value: `${unlockedCount} / ${studiedCount || "0"}`, 
+            icon: Compass, 
+            color: "text-rose-500", 
+            bg: "bg-rose-50 dark:bg-rose-950/10",
+            renderDetails: () => (
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">
+                Subtopics studied
+              </span>
+            )
+          },
+          { 
+            label: "Streak Count", 
+            value: `${streakCount} Day${streakCount !== 1 ? "s" : ""}`, 
+            icon: Flame, 
+            color: "text-amber-500", 
+            bg: "bg-amber-50 dark:bg-amber-950/10",
+            renderDetails: () => (
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">
+                {streakCount > 0 ? "Keep practicing daily!" : "Solve a problem today!"}
+              </span>
+            )
+          },
+          { 
+            label: "Strong Areas", 
+            value: `${strongAreas.length} Skill${strongAreas.length !== 1 ? "s" : ""}`, 
+            icon: Award, 
+            color: "text-emerald-500", 
+            bg: "bg-emerald-50 dark:bg-emerald-950/10",
+            renderDetails: () => {
+              if (strongAreas.length === 0) {
+                return (
+                  <span className="text-[10px] text-slate-400 dark:text-slate-550 mt-2 block italic leading-snug">
+                    Reach 70% mastery to feature skills
+                  </span>
+                );
+              }
+              const cleanSubtopic = (name) => name.replace(/^Stage \d+\s*—\s*/i, "");
+              const topThree = strongAreas.slice(0, 3).map(p => cleanSubtopic(p.subtopic));
+              return (
+                <div className="flex flex-wrap gap-1 mt-2.5 max-w-[190px]">
+                  {topThree.map((name, i) => (
+                    <span 
+                      key={i} 
+                      className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-450 border border-emerald-100/50 dark:border-emerald-900/20 truncate max-w-[100px]"
+                      title={name}
+                    >
+                      {name}
+                    </span>
+                  ))}
+                  {strongAreas.length > 3 && (
+                    <span 
+                      className="text-[8px] font-bold text-slate-450 dark:text-slate-500 self-center cursor-help underline decoration-dotted decoration-slate-350 dark:decoration-slate-700"
+                      title={strongAreas.slice(3).map(p => cleanSubtopic(p.subtopic)).join("\n")}
+                    >
+                      +{strongAreas.length - 3} more
+                    </span>
+                  )}
+                </div>
+              );
+            }
+          }
         ].map((card, idx) => {
           const Icon = card.icon;
           return (
-            <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-xl flex items-center justify-between shadow-2xs">
-              <div className="flex flex-col text-left">
+            <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-xl flex items-center justify-between shadow-2xs min-h-[105px]">
+              <div className="flex flex-col text-left justify-center flex-1 min-w-0 mr-2">
                 <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">{card.label}</span>
-                <span className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1">{card.value}</span>
+                <span className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mt-1 leading-none">{card.value}</span>
+                {card.renderDetails && card.renderDetails()}
               </div>
-              <div className={`h-10 w-10 rounded-lg ${card.bg} flex items-center justify-center ${card.color} shrink-0`}>
+              <div className={`h-10 w-10 rounded-lg ${card.bg} flex items-center justify-center ${card.color} shrink-0 self-start`}>
                 <Icon className="w-5.5 h-5.5" />
               </div>
             </div>

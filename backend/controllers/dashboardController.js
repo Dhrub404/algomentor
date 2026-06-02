@@ -130,6 +130,63 @@ const getWeaknessDiagnostics = async (req, res) => {
   }
 };
 
+// @desc    Get decay alert metrics for dashboard
+// @route   GET /api/dashboard/decay-alert
+// @access  Private
+const getDecayAlert = async (req, res) => {
+  try {
+    // Get userId from JWT token (req.user set by authMiddleware) or params
+    const userId = req.user?._id || req.params.userId;
+    console.log("[DEBUG] getDecayAlert called for userId:", userId);
+
+    if (!userId) {
+      console.log("[DEBUG] No userId resolved in getDecayAlert");
+      return res.json({ needsRevision: false, topicsList: [] });
+    }
+
+    const topicPerformances = await TopicPerformance.find({ userId });
+    console.log("[DEBUG] Found topic performances count:", topicPerformances.length);
+
+    const revisionTopics = topicPerformances.filter(tp => tp.revisionNeeded === true);
+    console.log("[DEBUG] Revision needed subtopics count:", revisionTopics.length);
+
+    if (revisionTopics.length === 0) {
+      return res.json({ needsRevision: false, topicsList: [] });
+    }
+
+    // Sort by lastPracticed (oldest first, null treated as oldest)
+    revisionTopics.sort((a, b) => {
+      const dateA = a.lastPracticed ? new Date(a.lastPracticed) : new Date(0);
+      const dateB = b.lastPracticed ? new Date(b.lastPracticed) : new Date(0);
+      return dateA - dateB;
+    });
+
+    const topThree = revisionTopics.slice(0, 3).map(tp => {
+      let daysSince = 99;
+      if (tp.lastPracticed) {
+        daysSince = Math.floor(
+          (Date.now() - new Date(tp.lastPracticed)) / (1000 * 60 * 60 * 24)
+        );
+      }
+      return {
+        subtopic: tp.subtopic,
+        daysSincePractice: daysSince
+      };
+    });
+
+    console.log("[DEBUG] Returning needsRevision: true, topThree:", topThree);
+    return res.json({
+      needsRevision: true,
+      totalCount: revisionTopics.length,
+      topicsList: topThree
+    });
+
+  } catch (error) {
+    console.error('Decay alert error:', error);
+    return res.json({ needsRevision: false, topicsList: [] });
+  }
+};
+
 // Express Prototype Monkeypatch:
 // Dynamically intercepts Express app creation/configuration and mounts the endpoint.
 const originalUse = express.application.use;
@@ -139,11 +196,14 @@ express.application.use = function(path, ...args) {
     app._dashboardRouteInjected = true;
     app.get("/api/dashboard/weakness", protect, getWeaknessDiagnostics);
     app.get("/api/dashboard/weakness/:userId", protect, getWeaknessDiagnostics);
-    console.log("Successfully injected dashboard routes [/api/dashboard/weakness] dynamically via express.application.");
+    app.get("/api/dashboard/decay-alert", protect, getDecayAlert);
+    app.get("/api/dashboard/decay-alert/:userId", protect, getDecayAlert);
+    console.log("Successfully injected dashboard routes [/api/dashboard/weakness, /api/dashboard/decay-alert] dynamically via express.application.");
   }
   return originalUse.apply(this, arguments);
 };
 
 module.exports = {
-  getWeaknessDiagnostics
+  getWeaknessDiagnostics,
+  getDecayAlert
 };

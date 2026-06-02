@@ -182,6 +182,144 @@ const completeDailyProblem = async (req, res) => {
   }
 };
 
+
+// @desc    Get revision practice sheet
+// @route   GET /api/practice/revision/:userId
+// @access  Private
+const getRevisionPracticeSheet = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const User = require("../models/User");
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const RevisionSnapshot = require("../models/RevisionSnapshot");
+    const { generateRevisionSet } = require("../engines/revisionEngine");
+    const today = getTodayDateString();
+
+    let revisionSnapshot = await RevisionSnapshot.findOne({ userId, date: today });
+    if (!revisionSnapshot) {
+      const revisionData = await generateRevisionSet(userId);
+      revisionSnapshot = new RevisionSnapshot({
+        userId,
+        date: today,
+        urgentSubtopics: revisionData.urgentSubtopics,
+        recommendedSubtopics: revisionData.recommendedSubtopics,
+        completedProblems: []
+      });
+      await revisionSnapshot.save();
+    }
+
+    res.json(revisionSnapshot);
+  } catch (error) {
+    console.error("Revision sheet generation error:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// @desc    Mark a revision practice problem as completed
+// @route   POST /api/practice/revision/complete
+// @access  Private
+const completeRevisionProblem = async (req, res) => {
+  const { problemId } = req.body;
+  const userId = req.user.id;
+
+  if (!problemId) {
+    return res.status(400).json({ message: "Problem ID is required" });
+  }
+
+  try {
+    const RevisionSnapshot = require("../models/RevisionSnapshot");
+    const today = getTodayDateString();
+    let revisionSnapshot = await RevisionSnapshot.findOne({ userId, date: today });
+    if (revisionSnapshot) {
+      const pId = new mongoose.Types.ObjectId(problemId);
+      const isAlreadyCompleted = revisionSnapshot.completedProblems.some(id => id.toString() === problemId.toString());
+      if (!isAlreadyCompleted) {
+        revisionSnapshot.completedProblems.push(pId);
+        await revisionSnapshot.save();
+      }
+    }
+
+    // Find the problem details
+    let problem = await ProblemMapping.findById(problemId);
+    if (!problem && revisionSnapshot) {
+      for (const sub of [...revisionSnapshot.urgentSubtopics, ...revisionSnapshot.recommendedSubtopics]) {
+        const found = sub.problems.find(p => p._id.toString() === problemId.toString());
+        if (found) {
+          problem = found;
+          break;
+        }
+      }
+    }
+
+    if (!problem) {
+      return res.status(404).json({ message: "Problem mapping not found" });
+    }
+
+    let progress = await UserProgress.findOne({ userId });
+    if (!progress) {
+      progress = new UserProgress({
+        userId,
+        unlockedSubtopics: [],
+        completedSubtopics: [],
+        mastery: {}
+      });
+    }
+
+    const solvedSet = new Set(progress.solvedProblems.map(id => id.toString()));
+    if (!solvedSet.has(problem._id.toString())) {
+      progress.solvedProblems.push(problem._id);
+    }
+
+    let performance = await TopicPerformance.findOne({
+      userId,
+      subtopic: problem.subtopic
+    });
+
+    if (!performance) {
+      performance = new TopicPerformance({
+        userId,
+        subtopic: problem.subtopic,
+        topic: problem.topic || "DSA",
+        platform: problem.platform
+      });
+    }
+
+    performance.totalSolved += 1;
+    performance.totalAttempted += 1;
+    performance.lastPracticed = new Date();
+    performance.revisionNeeded = false;
+
+    const { calculatePerformanceScores } = require("../engines/weaknessEngine");
+    const scores = calculatePerformanceScores(performance, problem.difficulty);
+    performance.accuracy = scores.accuracy;
+    performance.consistencyScore = scores.consistencyScore;
+    performance.difficultyWeight = scores.difficultyWeight;
+    performance.masteryScore = scores.masteryScore;
+    performance.weaknessScore = scores.weaknessScore;
+
+    await performance.save();
+
+    progress.mastery.set(problem.subtopic, scores.masteryScore);
+    progress.lastActivityDate = new Date();
+    await progress.save();
+
+    res.json({
+      message: "Revision practice problem marked completed successfully!",
+      progress,
+      performance,
+      revisionSnapshot
+    });
+  } catch (error) {
+    console.error("Complete revision problem error:", error.message);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 // Dynamic Router Injection:
 // Register the POST /complete route under the practiceRoutes router.
 process.nextTick(() => {
@@ -202,5 +340,7 @@ process.nextTick(() => {
 
 module.exports = {
   getDailyPracticeSheet,
-  completeDailyProblem
+  completeDailyProblem,
+  getRevisionPracticeSheet,
+  completeRevisionProblem
 };

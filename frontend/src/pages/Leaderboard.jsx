@@ -65,27 +65,23 @@ const getBatchFallback = (username, dbBatch) => {
 
 // Platform Score Calculators
 const getLeetCodeSolved = (u) => {
-  if (!u.leetcodeHandle) return null;
-  return 65 + (getHashCode(u.leetcodeHandle) % 80) + (u.solvedCount || 0);
+  return u.leetcodeScore !== undefined && u.leetcodeScore !== null ? u.leetcodeScore : null;
 };
 
 const getCodeforcesRating = (u) => {
-  if (!u.codeforcesHandle) return null;
-  return 1000 + (getHashCode(u.codeforcesHandle) % 800) + (u.solvedCount * 4);
+  return u.codeforcesScore !== undefined && u.codeforcesScore !== null ? u.codeforcesScore : null;
 };
 
 const getCodeChefRating = (u) => {
-  if (!u.codechefHandle) return null;
-  return 950 + (getHashCode(u.codechefHandle) % 700) + (u.solvedCount * 3);
+  return u.codechefScore !== undefined && u.codechefScore !== null ? u.codechefScore : null;
 };
 
 const getGfgScore = (u) => {
-  if (!u.gfgHandle) return null;
-  return 120 + (getHashCode(u.gfgHandle) % 400) + (u.solvedCount * 2);
+  return u.gfgScore !== undefined && u.gfgScore !== null ? u.gfgScore : null;
 };
 
 const getStreakVal = (u) => {
-  return u.streak || null;
+  return u.streak !== undefined && u.streak !== null ? u.streak : null;
 };
 
 const Leaderboard = () => {
@@ -245,19 +241,18 @@ const Leaderboard = () => {
         case "username":
           return u.username.toLowerCase();
         case "leetcode":
-          return u.lcSolved || 0;
+          return u.leetcodeScore || 0;
         case "codeforces":
-          return u.cfRating || 0;
+          return u.codeforcesScore || 0;
         case "codechef":
-          return u.ccRating || 0;
+          return u.codechefScore || 0;
         case "gfg":
           return u.gfgScore || 0;
         case "streak":
-          return u.streakVal || 0;
+          return u.streak || 0;
         case "score":
         default:
-          // In combined score pill mode, sort by combined mastery
-          return u.score || 0;
+          return u.totalScore !== undefined ? u.totalScore : (u.score || 0);
       }
     };
 
@@ -299,13 +294,14 @@ const Leaderboard = () => {
   };
 
   const getDisplayScoreValue = (u) => {
-    if (activePlatform === "All") return u.score;
-    if (activePlatform === "LeetCode") return u.lcSolved !== null ? u.lcSolved : "—";
-    if (activePlatform === "Codeforces") return u.cfRating !== null ? u.cfRating : "—";
-    if (activePlatform === "CodeChef") return u.ccRating !== null ? u.ccRating : "—";
-    if (activePlatform === "GFG") return u.gfgScore !== null ? u.gfgScore : "—";
-    if (activePlatform === "Streak") return u.streakVal !== null ? `${u.streakVal}d` : "—";
-    return u.score;
+    const totalScore = u.totalScore !== undefined ? u.totalScore : u.score;
+    if (activePlatform === "All") return totalScore;
+    if (activePlatform === "LeetCode") return u.leetcodeScore || "—";
+    if (activePlatform === "Codeforces") return u.codeforcesScore || "—";
+    if (activePlatform === "CodeChef") return u.codechefScore || "—";
+    if (activePlatform === "GFG") return u.gfgScore || "—";
+    if (activePlatform === "Streak") return u.streak !== undefined && u.streak !== null ? `${u.streak}d` : "—";
+    return totalScore;
   };
 
   return (
@@ -576,35 +572,35 @@ const Leaderboard = () => {
 
                         {/* Dynamic Score column */}
                         <td className="py-4.5 px-6 font-bold text-indigo-600 dark:text-indigo-400 text-sm">
-                          {getDisplayScoreValue(item)}
+                          {item.totalScore !== undefined ? item.totalScore : (item.score || 0)}
                         </td>
 
                         {/* LeetCode count */}
                         <td className="py-4.5 px-6 font-semibold text-slate-650 dark:text-slate-350">
-                          {item.lcSolved !== null ? item.lcSolved : "—"}
+                          {item.leetcodeScore ? item.leetcodeScore : "—"}
                         </td>
 
                         {/* Codeforces rating */}
                         <td className="py-4.5 px-6 font-semibold text-slate-650 dark:text-slate-350">
-                          {item.cfRating !== null ? item.cfRating : "—"}
+                          {item.codeforcesScore ? item.codeforcesScore : "—"}
                         </td>
 
                         {/* CodeChef rating */}
                         <td className="py-4.5 px-6 font-semibold text-slate-650 dark:text-slate-350">
-                          {item.ccRating !== null ? item.ccRating : "—"}
+                          {item.codechefScore ? item.codechefScore : "—"}
                         </td>
 
                         {/* GFG Score */}
                         <td className="py-4.5 px-6 font-semibold text-slate-650 dark:text-slate-350">
-                          {item.gfgScore !== null ? item.gfgScore : "—"}
+                          {item.gfgScore ? item.gfgScore : "—"}
                         </td>
 
                         {/* Streak count */}
                         <td className="py-4.5 px-6">
-                          {item.streakVal !== null && item.streakVal > 0 ? (
+                          {item.streak ? (
                             <span className="inline-flex items-center gap-0.5 font-bold text-slate-800 dark:text-slate-200">
                               <span className="text-[11px]" title="Active Streak">🔥</span>
-                              <span>{item.streakVal}d</span>
+                              <span>{item.streak}d</span>
                             </span>
                           ) : (
                             <span className="text-slate-450">—</span>
