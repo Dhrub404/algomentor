@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 
@@ -9,24 +9,36 @@ function DecayAlert({ userId }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (userId) {
-      fetchDecayAlert();
-    }
-  }, [userId]);
+    let isMounted = true;
 
-  const fetchDecayAlert = async () => {
-    try {
-      const response = await api.get("/api/dashboard/decay-alert");
-      
-      if (response.data && response.data.needsRevision) {
-        setAlert(response.data);
+    async function loadDecayAlert() {
+      try {
+        const response = await api.get("/api/dashboard/decay-alert");
+
+        if (!isMounted) return;
+
+        if (response.data && response.data.needsRevision) {
+          setAlert(response.data);
+        }
+      } catch (error) {
+        console.error("Fetch decay alert error:", error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-      setLoading(false);
-    } catch (error) {
-      console.error("Fetch decay alert error:", error);
+    }
+
+    if (userId) {
+      loadDecayAlert();
+    } else {
       setLoading(false);
     }
-  };
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
 
   if (loading || !alert || !isVisible) {
     return null;
