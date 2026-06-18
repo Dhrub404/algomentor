@@ -31,8 +31,6 @@ function DecayAlert({ userId }) {
 
     if (userId) {
       loadDecayAlert();
-    } else {
-      setLoading(false);
     }
 
     return () => {
