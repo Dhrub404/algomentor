@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import api from "../services/api";
@@ -252,7 +252,7 @@ const Roadmap = () => {
           {personalizedData && !personalizedData.noPerformanceData && !personalizedData.noPlatformConnected && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 text-left">
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-650 dark:text-indigo-400">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
                   🗺 Personalized Guidance
                 </span>
                 <h2 className="text-lg sm:text-xl font-bold text-slate-850 dark:text-slate-100 mt-1 my-0">
@@ -277,7 +277,7 @@ const Roadmap = () => {
                 <button
                   onClick={handleRegenerate}
                   disabled={regenerating}
-                  className="w-full md:w-auto px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-2 transition-all duration-150 cursor-pointer"
+                  className="w-full md:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-2 transition-all duration-150 cursor-pointer"
                 >
                   <RefreshCw className={`w-4 h-4 ${regenerating ? "animate-spin" : ""}`} />
                   {regenerating ? "Regenerating..." : "Regenerate Roadmap"}
@@ -398,7 +398,7 @@ const Roadmap = () => {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span className="font-mono text-2xs font-bold px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-750 bg-white dark:bg-slate-800 text-slate-650 dark:text-slate-350">
+                        <span className="font-mono text-2xs font-bold px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-750 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-350">
                           {weekSolved} / {weekTotal} Completed
                         </span>
                         <span className="text-slate-400">
@@ -460,7 +460,7 @@ const Roadmap = () => {
                                   
                                   {/* Diagnosis Banner */}
                                   <div className="flex items-start gap-2 text-2xs text-slate-550 dark:text-slate-450 bg-indigo-50/20 dark:bg-slate-950/45 px-3.5 py-2.5 rounded-lg border border-slate-200/50 dark:border-slate-850">
-                                    <span className="font-bold text-indigo-650 dark:text-indigo-400 shrink-0">
+                                    <span className="font-bold text-indigo-600 dark:text-indigo-400 shrink-0">
                                       Diagnosis:
                                     </span>
                                     <span>{item.reason}</span>
@@ -481,16 +481,16 @@ const Roadmap = () => {
                                           const isSolved = personalizedData.completedProblems?.includes(problem._id.toString());
                                           
                                           let platformLabel = "LC";
-                                          let platformColor = "text-orange-650 dark:text-orange-400 border-orange-200 dark:border-orange-900/30 bg-orange-50 dark:bg-orange-950/20";
+                                          let platformColor = "text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-900/30 bg-orange-50 dark:bg-orange-950/20";
                                           if (problem.platform === "gfg") {
                                             platformLabel = "GFG";
-                                            platformColor = "text-emerald-600 dark:text-emerald-455 border-emerald-200 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-950/20";
+                                            platformColor = "text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-950/20";
                                           } else if (problem.platform === "codeforces") {
                                             platformLabel = "CF";
-                                            platformColor = "text-blue-650 dark:text-blue-400 border-blue-200 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-950/20";
+                                            platformColor = "text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-950/20";
                                           } else {
                                             platformLabel = (problem.platform || "").toUpperCase();
-                                            platformColor = "text-slate-650 dark:text-slate-400 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/20";
+                                            platformColor = "text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/20";
                                           }
 
                                           return (
@@ -534,7 +534,7 @@ const Roadmap = () => {
                                                   href={problem.url}
                                                   target="_blank"
                                                   rel="noopener noreferrer"
-                                                  className="p-1.5 text-slate-400 hover:text-indigo-650 dark:hover:text-indigo-400 transition-colors"
+                                                  className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                                                   title="Open in new tab"
                                                 >
                                                   <ExternalLink className="w-3.5 h-3.5" />
@@ -577,7 +577,7 @@ const Roadmap = () => {
               dotColorClass = "bg-emerald-500";
             } else if (milestone.status === "in_progress") {
               statusBadge = "In Progress";
-              statusBadgeColor = "text-indigo-650 bg-indigo-500/10 border-indigo-500/20";
+              statusBadgeColor = "text-indigo-600 bg-indigo-500/10 border-indigo-500/20";
               dotColorClass = "bg-indigo-600";
             }
 
@@ -677,7 +677,7 @@ const Roadmap = () => {
 
                       <button
                         onClick={() => navigate("/explorer", { state: { topic: milestone.topic } })}
-                        className="px-4 py-2 border border-indigo-650 text-indigo-650 dark:border-indigo-400 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-2xs font-bold rounded-lg shadow-3xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                        className="px-4 py-2 border border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-2xs font-bold rounded-lg shadow-3xs flex items-center gap-1.5 cursor-pointer transition-colors"
                       >
                         Practice This Topic →
                       </button>

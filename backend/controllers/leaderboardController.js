@@ -37,7 +37,7 @@ const calculateTotalScore = (user, progress, scores) => {
     (masteryComp * 0.15)
   );
 
-  return Math.round(totalScore * 100) / 100;
+  return Math.round(totalScore);
 };
 
 // @desc    Get leaderboard stats
