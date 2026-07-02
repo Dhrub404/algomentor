@@ -302,7 +302,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 📞 Support
 
-For support, email support@algomentor.com or open an issue on GitHub.
+For support, email dhurvmahajan983@gmail.com or open an issue on GitHub.
 
 ## 🎓 Educational Purpose
 
