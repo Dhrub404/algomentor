@@ -130,15 +130,19 @@ const Roadmap = () => {
       const diff = Date.now() - new Date(personalizedData.generatedAt).getTime();
       const seconds = Math.floor(diff / 1000);
       const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
 
       if (seconds < 15) {
         setElapsedText("Just now");
       } else if (seconds < 60) {
         setElapsedText(`${seconds} seconds ago`);
-      } else if (minutes === 1) {
-        setElapsedText("1 minute ago");
+      } else if (minutes < 60) {
+        setElapsedText(minutes === 1 ? "1 minute ago" : `${minutes} minutes ago`);
+      } else if (hours < 24) {
+        setElapsedText(hours === 1 ? "1 hour ago" : `${hours} hours ago`);
       } else {
-        setElapsedText(`${minutes} minutes ago`);
+        setElapsedText(days === 1 ? "1 day ago" : `${days} days ago`);
       }
     };
 
