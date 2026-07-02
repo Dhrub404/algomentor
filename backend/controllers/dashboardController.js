@@ -32,21 +32,28 @@ const getWeaknessDiagnostics = async (req, res) => {
 
     // Fetch all topics and build a map of studied subtopics
     const topics = await Topic.find({});
-    const studiedSubtopics = [];
+    const studiedSubtopics = new Set();
     const subtopicToTopic = {};
     const subtopicToTotalProblems = {};
 
+    const studiedLower = studied.map((st) => st.toLowerCase());
+
     topics.forEach((t) => {
-      // Check if this topic is in studiedTopics (fuzzy match to handle "Recursion" vs "Recursion & Backtracking")
-      const isStudied = studied.some(st => 
-        t.name.toLowerCase().includes(st.toLowerCase()) || 
-        st.toLowerCase().includes(t.name.toLowerCase())
-      );
+      const topicNameLower = t.name.toLowerCase();
       t.subtopics.forEach((s) => {
+        const subNameLower = s.name.toLowerCase();
+        const isTopicStudied = studiedLower.some((stLower) =>
+          topicNameLower.includes(stLower) || stLower.includes(topicNameLower)
+        );
+        const isSubtopicStudied = studiedLower.some((stLower) =>
+          subNameLower === stLower || subNameLower.includes(stLower) || stLower.includes(subNameLower)
+        );
+
         subtopicToTopic[s.name] = t.name;
         subtopicToTotalProblems[s.name] = s.problemCount || (s.problems && s.problems.length) || 5;
-        if (isStudied) {
-          studiedSubtopics.push(s.name);
+
+        if (isTopicStudied || isSubtopicStudied) {
+          studiedSubtopics.add(s.name);
         }
       });
     });
@@ -79,7 +86,7 @@ const getWeaknessDiagnostics = async (req, res) => {
     }
 
     // Filter results to ONLY include subtopics that are in studiedTopics
-    const subtopicsList = studiedSubtopics.map((subName) => {
+    const subtopicsList = Array.from(studiedSubtopics).map((subName) => {
       const p = perfMap[subName];
       return {
         subtopic: p.subtopic,
