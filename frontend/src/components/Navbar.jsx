@@ -55,7 +55,7 @@ const Navbar = () => {
                 <Terminal className="w-5 h-5" />
               </div>
               <span className="font-semibold tracking-tight text-slate-900 dark:text-white">
-                Algo<span className="text-indigo-600 dark:text-indigo-400">Mentor</span>
+                algo<span className="text-indigo-600 dark:text-indigo-400">meter</span>
               </span>
             </Link>
           </div>

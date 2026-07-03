@@ -1,4 +1,4 @@
-# AI Roadmap Tracker - AlgoMentor
+# algometer
 
 An intelligent competitive programming learning platform that generates personalized learning roadmaps, tracks progress, identifies weaknesses, and recommends optimal practice problems from multiple platforms.
 

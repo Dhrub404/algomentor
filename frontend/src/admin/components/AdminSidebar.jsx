@@ -49,7 +49,7 @@ const AdminSidebar = () => {
           <ShieldCheck className="w-3.5 h-3.5 text-indigo-500/50" />
           <span>Security Level: root</span>
         </div>
-        <span>AlgoMentor Admin Panel</span>
+        <span>algometer Admin Panel</span>
       </div>
     </aside>
   );

@@ -431,7 +431,7 @@ const Onboarding = () => {
               Choose Studied DSA Topics
             </h2>
             <p className="text-xs text-slate-550 dark:text-slate-450 mb-6 leading-relaxed">
-              Check the topics you've already studied. AlgoMentor will analyze weaknesses and generate daily sheets ONLY for unlocked studied subtopics.
+              Check the topics you've already studied. algometer will analyze weaknesses and generate daily sheets ONLY for unlocked studied subtopics.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-1">

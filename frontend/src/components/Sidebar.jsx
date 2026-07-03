@@ -53,7 +53,7 @@ const Sidebar = () => {
           <HelpCircle className="w-3.5 h-3.5" />
           <span>Support & FAQ</span>
         </div>
-        <span>AlgoMentor v1.0.0</span>
+        <span>algometer v1.0.0</span>
       </div>
     </aside>
   );

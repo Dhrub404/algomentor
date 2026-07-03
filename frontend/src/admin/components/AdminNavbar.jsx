@@ -15,7 +15,7 @@ const AdminNavbar = () => {
             M
           </div>
           <span className="font-sans font-bold text-lg text-slate-100 tracking-tight">
-            AlgoMentor <span className="text-indigo-400 font-mono text-3xs border border-indigo-500/30 px-2 py-0.5 rounded-full ml-1 bg-indigo-500/5">ADMIN</span>
+            algometer <span className="text-indigo-400 font-mono text-3xs border border-indigo-500/30 px-2 py-0.5 rounded-full ml-1 bg-indigo-500/5">ADMIN</span>
           </span>
         </Link>
       </div>

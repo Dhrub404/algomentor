@@ -58,7 +58,7 @@ const Register = () => {
             Create an Account
           </h2>
           <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-            Join AlgoMentor to track CP handles and build custom DSA roadmaps.
+            Join algometer to track CP handles and build custom DSA roadmaps.
           </p>
         </div>
 

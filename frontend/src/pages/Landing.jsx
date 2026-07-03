@@ -22,7 +22,7 @@ const Landing = () => {
 
         {/* Description */}
         <p className="text-xs sm:text-sm md:text-base text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed my-0">
-          AlgoMentor hooks to your Codeforces and LeetCode accounts, runs diagnostic analysis on subtopic accuracy, isolates weaknesses, unlocks paths, and crafts daily custom practice sheets.
+          algometer hooks to your Codeforces and LeetCode accounts, runs diagnostic analysis on subtopic accuracy, isolates weaknesses, unlocks paths, and crafts daily custom practice sheets.
         </p>
 
         {/* Actions */}
