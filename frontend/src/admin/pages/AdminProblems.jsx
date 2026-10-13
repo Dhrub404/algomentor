@@ -32,8 +32,8 @@ const AdminProblems = () => {
     setLoading(true);
     try {
       const [probRes, topRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/admin/problems"),
-        axios.get("http://localhost:5000/api/admin/topics")
+        axios.get("https://algomentor-backend-rpin.onrender.com/api/admin/problems"),
+        axios.get("https://algomentor-backend-rpin.onrender.com/api/admin/topics")
       ]);
       setProblems(probRes.data);
       setTopics(topRes.data);
@@ -115,7 +115,7 @@ const AdminProblems = () => {
     };
 
     try {
-      await axios.post("http://localhost:5000/api/admin/problems", payload);
+      await axios.post("https://algomentor-backend-rpin.onrender.com/api/admin/problems", payload);
       alert("Problem mapped successfully");
       setIsAdding(false);
       fetchData();
@@ -132,7 +132,7 @@ const AdminProblems = () => {
     };
 
     try {
-      await axios.put(`http://localhost:5000/api/admin/problems/${editingProblemId}`, payload);
+      await axios.put(`https://algomentor-backend-rpin.onrender.com/api/admin/problems/${editingProblemId}`, payload);
       alert("Problem mapping updated");
       setEditingProblemId(null);
       fetchData();
@@ -144,7 +144,7 @@ const AdminProblems = () => {
   const handleDelete = async (probId) => {
     if (!window.confirm("Are you sure you want to delete this problem mapping?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/admin/problems/${probId}`);
+      await axios.delete(`https://algomentor-backend-rpin.onrender.com/api/admin/problems/${probId}`);
       alert("Problem mapping deleted successfully");
       fetchData();
     } catch (err) {

@@ -18,7 +18,7 @@ const AdminSettings = () => {
     setLoading(true);
     setFeedback(null);
     try {
-      const res = await axios.get("http://localhost:5000/api/admin/settings");
+      const res = await axios.get("https://algomentor-backend-rpin.onrender.com/api/admin/settings");
       setSettings(res.data);
     } catch (err) {
       console.error("Failed to load settings:", err);
@@ -52,7 +52,7 @@ const AdminSettings = () => {
     setSaving(true);
     setFeedback(null);
     try {
-      const res = await axios.put("http://localhost:5000/api/admin/settings", settings);
+      const res = await axios.put("https://algomentor-backend-rpin.onrender.com/api/admin/settings", settings);
       setSettings(res.data.settings);
       setFeedback({ type: "success", message: "System settings updated successfully." });
       setTimeout(() => setFeedback(null), 4000);

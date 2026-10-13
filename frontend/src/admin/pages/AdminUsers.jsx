@@ -28,7 +28,7 @@ const AdminUsers = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await axios.get("http://localhost:5000/api/admin/users");
+      const res = await axios.get("https://algomentor-backend-rpin.onrender.com/api/admin/users");
       setUsers(res.data);
     } catch (err) {
       console.error("Failed to fetch users list:", err);
@@ -44,7 +44,7 @@ const AdminUsers = () => {
   const handleOpenUser = async (userId) => {
     setSyncingUser(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/admin/users/${userId}`);
+      const res = await axios.get(`https://algomentor-backend-rpin.onrender.com/api/admin/users/${userId}`);
       setSelectedUser(res.data);
       setModalOpen(true);
     } catch (err) {
@@ -185,8 +185,8 @@ const UserDetailModal = ({ userObj, onClose }) => {
     const fetchSelectables = async () => {
       try {
         const [probRes, topRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/admin/problems"),
-          axios.get("http://localhost:5000/api/admin/topics")
+          axios.get("https://algomentor-backend-rpin.onrender.com/api/admin/problems"),
+          axios.get("https://algomentor-backend-rpin.onrender.com/api/admin/topics")
         ]);
         setProblems(probRes.data);
         setTopics(topRes.data);
@@ -204,10 +204,10 @@ const UserDetailModal = ({ userObj, onClose }) => {
 
   const triggerAction = async (endpoint, data, successAlert) => {
     try {
-      const res = await axios.put(`http://localhost:5000/api/admin/users/${user._id}/${endpoint}`, data);
+      const res = await axios.put(`https://algomentor-backend-rpin.onrender.com/api/admin/users/${user._id}/${endpoint}`, data);
       alert(successAlert || "Action completed successfully!");
       // reload user modal data
-      const refetch = await axios.get(`http://localhost:5000/api/admin/users/${user._id}`);
+      const refetch = await axios.get(`https://algomentor-backend-rpin.onrender.com/api/admin/users/${user._id}`);
       userObj.progress = refetch.data.progress;
       userObj.performances = refetch.data.performances;
       // Trigger local render sync
@@ -236,7 +236,7 @@ const UserDetailModal = ({ userObj, onClose }) => {
   const handleSaveOverrideThreshold = async () => {
     try {
       const val = overrideThreshold === "" ? null : parseInt(overrideThreshold);
-      await axios.put(`http://localhost:5000/api/admin/users/${user._id}/override-threshold`, {
+      await axios.put(`https://algomentor-backend-rpin.onrender.com/api/admin/users/${user._id}/override-threshold`, {
         threshold: val
       });
       alert("Unlock threshold override updated successfully!");
@@ -248,12 +248,12 @@ const UserDetailModal = ({ userObj, onClose }) => {
   const handleSimulateProblem = async (problemId, status) => {
     setSimulatingProblem(problemId);
     try {
-      await axios.put(`http://localhost:5000/api/admin/users/${user._id}/mark-problem`, {
+      await axios.put(`https://algomentor-backend-rpin.onrender.com/api/admin/users/${user._id}/mark-problem`, {
         problemId,
         status
       });
       // reload user details
-      const refetch = await axios.get(`http://localhost:5000/api/admin/users/${user._id}`);
+      const refetch = await axios.get(`https://algomentor-backend-rpin.onrender.com/api/admin/users/${user._id}`);
       userObj.progress = refetch.data.progress;
       userObj.performances = refetch.data.performances;
     } catch (err) {
@@ -266,7 +266,7 @@ const UserDetailModal = ({ userObj, onClose }) => {
   const handleResetProgress = async () => {
     if (!window.confirm("CAUTION: This will delete ALL progress, solved problems, and topic performance logs for this user. Continue?")) return;
     try {
-      const res = await axios.post(`http://localhost:5000/api/admin/users/${user._id}/reset-progress`);
+      const res = await axios.post(`https://algomentor-backend-rpin.onrender.com/api/admin/users/${user._id}/reset-progress`);
       alert("User progress completely reset!");
       onClose();
     } catch (err) {
@@ -278,7 +278,7 @@ const UserDetailModal = ({ userObj, onClose }) => {
     setEngineLoading(true);
     setEngineOutput(null);
     try {
-      const res = await axios.post(`http://localhost:5000/api/admin/users/${user._id}/run-engine/${engineName}`);
+      const res = await axios.post(`https://algomentor-backend-rpin.onrender.com/api/admin/users/${user._id}/run-engine/${engineName}`);
       setEngineOutput({
         name: engineName,
         data: res.data.output

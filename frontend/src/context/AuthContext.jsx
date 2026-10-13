@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
         setAuthHeader(token);
         try {
           // Fetch current user details and progress
-          const response = await axios.get("http://localhost:5000/api/user/profile");
+          const response = await axios.get("https://algomentor-backend-rpin.onrender.com/api/user/profile");
           setUser(response.data);
         } catch (error) {
           console.error("Error loading user profile:", error);
@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (username, email, password) => {
     setLoading(true);
     try {
-      const response = await axios.post("http://localhost:5000/api/auth/register", {
+      const response = await axios.post("https://algomentor-backend-rpin.onrender.com/api/auth/register", {
         username,
         email,
         password
@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
       setAuthHeader(token);
 
       // Fetch full profile (includes empty progress schemas)
-      const profileResponse = await axios.get("http://localhost:5000/api/user/profile");
+      const profileResponse = await axios.get("https://algomentor-backend-rpin.onrender.com/api/user/profile");
       setUser(profileResponse.data);
       setLoading(false);
       return profileResponse.data;
@@ -78,7 +78,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     setLoading(true);
     try {
-      const response = await axios.post("http://localhost:5000/api/auth/login", {
+      const response = await axios.post("https://algomentor-backend-rpin.onrender.com/api/auth/login", {
         email,
         password
       });
@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("token", token);
       setAuthHeader(token);
 
-      const profileResponse = await axios.get("http://localhost:5000/api/user/profile");
+      const profileResponse = await axios.get("https://algomentor-backend-rpin.onrender.com/api/user/profile");
       setUser(profileResponse.data);
       setLoading(false);
       return profileResponse.data;
@@ -105,7 +105,7 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (profileData) => {
     try {
-      const response = await axios.put("http://localhost:5000/api/user/update", profileData);
+      const response = await axios.put("https://algomentor-backend-rpin.onrender.com/api/user/update", profileData);
       setUser(response.data);
       return response.data;
     } catch (error) {
@@ -115,7 +115,7 @@ export const AuthProvider = ({ children }) => {
 
   const connectHandles = async (handlesObj) => {
     try {
-      const response = await axios.post("http://localhost:5000/api/user/connect-platform", handlesObj);
+      const response = await axios.post("https://algomentor-backend-rpin.onrender.com/api/user/connect-platform", handlesObj);
       setUser(response.data);
       return response.data;
     } catch (error) {
@@ -125,7 +125,7 @@ export const AuthProvider = ({ children }) => {
 
   const refetchUser = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/user/profile");
+      const response = await axios.get("https://algomentor-backend-rpin.onrender.com/api/user/profile");
       setUser(response.data);
     } catch (error) {
       console.error("Error refetching user details:", error);

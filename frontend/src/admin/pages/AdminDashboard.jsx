@@ -17,7 +17,7 @@ const AdminDashboard = () => {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const response = await axios.get("http://localhost:5000/api/admin/stats");
+      const response = await axios.get("https://algomentor-backend-rpin.onrender.com/api/admin/stats");
       setStats(response.data);
     } catch (err) {
       console.error("Failed to load admin stats:", err);

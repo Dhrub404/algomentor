@@ -155,7 +155,7 @@ const Roadmap = () => {
     if (!user) return;
     setRegenerating(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/roadmap/adaptive/${user._id}?force=true`);
+      const res = await axios.get(`https://algomentor-backend-rpin.onrender.com/api/roadmap/adaptive/${user._id}?force=true`);
       setPersonalizedData(res.data);
       // Reset expansions to original state
       setExpandedWeeks({ 1: true });
@@ -183,7 +183,7 @@ const Roadmap = () => {
 
     try {
       // 2. Persist in snapshot and general progress
-      const res = await axios.post("http://localhost:5000/api/roadmap/toggle-problem", { problemId });
+      const res = await axios.post("https://algomentor-backend-rpin.onrender.com/api/roadmap/toggle-problem", { problemId });
       setPersonalizedData(res.data);
     } catch (err) {
       console.error("Failed to toggle problem:", err);

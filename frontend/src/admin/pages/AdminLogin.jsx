@@ -20,7 +20,7 @@ const AdminLogin = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post("http://localhost:5000/api/admin/login", formData);
+      const response = await axios.post("https://algomentor-backend-rpin.onrender.com/api/admin/login", formData);
       login(response.data.token);
     } catch (err) {
       console.error(err);

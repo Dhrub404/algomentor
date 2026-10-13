@@ -1,6 +1,6 @@
-import React from "react";
+// import React from "react";
 import { Link } from "react-router-dom";
-import { Compass, Trophy, Zap, Code2, LineChart, ShieldCheck } from "lucide-react";
+import { Zap, Code2, LineChart, ShieldCheck } from "lucide-react";
 
 const Landing = () => {
   return (
@@ -22,7 +22,7 @@ const Landing = () => {
 
         {/* Description */}
         <p className="text-xs sm:text-sm md:text-base text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed my-0">
-          algometer hooks to your Codeforces and LeetCode accounts, runs diagnostic analysis on subtopic accuracy, isolates weaknesses, unlocks paths, and crafts daily custom practice sheets.
+          AlgoMentor hooks to your Codeforces and LeetCode accounts, runs diagnostic analysis on subtopic accuracy, isolates weaknesses, unlocks paths, and crafts daily custom practice sheets.
         </p>
 
         {/* Actions */}

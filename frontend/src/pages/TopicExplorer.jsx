@@ -143,7 +143,7 @@ const TopicExplorer = () => {
 
     try {
       // 2. Call POST /api/topics/toggle-problem
-      const res = await axios.post("http://localhost:5000/api/topics/toggle-problem", {
+      const res = await axios.post("https://algomentor-backend-rpin.onrender.com/api/topics/toggle-problem", {
         userId: progress?.userId,
         problemId,
         subtopic: subName,

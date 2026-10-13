@@ -12,7 +12,7 @@ const AdminLeaderboard = () => {
   const fetchLeaderboard = async () => {
     setLoading(true);
     try {
-      const res = await axios.get("http://localhost:5000/api/admin/users");
+      const res = await axios.get("https://algomentor-backend-rpin.onrender.com/api/admin/users");
       setUsers(res.data);
     } catch (err) {
       console.error("Failed to fetch admin users roster for leaderboard:", err);

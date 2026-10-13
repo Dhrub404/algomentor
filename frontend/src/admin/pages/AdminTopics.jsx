@@ -18,7 +18,7 @@ const AdminTopics = () => {
   const fetchTopics = async () => {
     setLoading(true);
     try {
-      const res = await axios.get("http://localhost:5000/api/admin/topics");
+      const res = await axios.get("https://algomentor-backend-rpin.onrender.com/api/admin/topics");
       setTopics(res.data);
     } catch (err) {
       console.error(err);
@@ -70,7 +70,7 @@ const AdminTopics = () => {
   const handleSaveEdit = async () => {
     const { topicId, _id } = editingSubtopic;
     try {
-      await axios.put(`http://localhost:5000/api/admin/topics/${topicId}/subtopic/${_id}`, formData);
+      await axios.put(`https://algomentor-backend-rpin.onrender.com/api/admin/topics/${topicId}/subtopic/${_id}`, formData);
       alert("Subtopic updated successfully");
       setEditingSubtopic(null);
       fetchTopics();
@@ -82,7 +82,7 @@ const AdminTopics = () => {
   const handleSaveAdd = async () => {
     const topicId = addingSubtopicToTopicId;
     try {
-      await axios.post(`http://localhost:5000/api/admin/topics/${topicId}/subtopic`, formData);
+      await axios.post(`https://algomentor-backend-rpin.onrender.com/api/admin/topics/${topicId}/subtopic`, formData);
       alert("Subtopic created successfully");
       setAddingSubtopicToTopicId(null);
       fetchTopics();

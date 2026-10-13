@@ -41,7 +41,7 @@ if (!api.get) {
     const token = localStorage.getItem("token");
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
     const cleanUrl = url.startsWith("/api") ? url.slice(4) : url;
-    return axios.get(`http://localhost:5000/api${cleanUrl}`, {
+    return axios.get(`https://algomentor-backend-rpin.onrender.com/api${cleanUrl}`, {
       ...config,
       headers: { ...headers, ...config?.headers }
     });
@@ -180,7 +180,7 @@ const Dashboard = () => {
 
     try {
       // POST request to complete problem
-      await axios.post("http://localhost:5000/api/practice/complete", { problemId });
+      await axios.post("https://algomentor-backend-rpin.onrender.com/api/practice/complete", { problemId });
       await refetchUser();
       await fetchAllData();
     } catch (err) {
