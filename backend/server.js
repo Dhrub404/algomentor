@@ -21,8 +21,13 @@ const app = express();
 connectDB();
 
 // Init Middleware
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://algomentor-dusky.vercel.app"
+];
+
 app.use(cors({
-  origin: true,
+  origin: allowedOrigins,
   credentials: true,
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
